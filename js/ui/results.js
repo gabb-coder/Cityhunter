@@ -127,12 +127,13 @@ function renderResults() {
       '<button type="button" class="btn btn-line" data-act="res-home">' + icon('home', 20) + 'Home</button>' +
       (me.host
         ? '<button type="button" class="btn btn-lime head rematch" data-act="rematch">' + icon('replay', 20, 2.5) + 'REMATCH</button>'
+        : r.reason === 'host-lost' ? ''
         : '<button type="button" class="btn btn-lime head rematch" disabled>WAITING FOR HOST</button>') +
     '</footer>');
 }
 
 act('rematch', () => app.session.send({ k: 'rematch' }));
-act('res-home', () => app.go.leave());
+act('res-home', () => (app.session && app.session.abandoned ? app.go.cleanup() : app.go.leave()));
 
 // Redraw the route from start to finish.
 act('replay', () => {

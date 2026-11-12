@@ -18,17 +18,20 @@ import './ui/catch.js';
 import './ui/results.js';
 import './ui/admin.js';
 import './ui/alerts.js';
+import './ui/net.js';
+import './resume.js';
 import './voice.js';
 import { installPlay } from './host-play.js';
 import { installCatch } from './host-catch.js';
 import { installAdmin } from './host-admin.js';
 import { installSafety } from './host-safety.js';
+import { installResilience } from './host-resilience.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety];
+app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
@@ -191,7 +194,7 @@ function leave() {
   if (!app.session.isHost) setTimeout(cleanup, 150);
 }
 
-app.go = { host: hostGame, join: joinGame, leave, route, cleanup, resumable: () => null, resume: () => {}, forget: () => {} };
+Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup });
 
 // ---- keep the screen awake during a match ----
 let wakeLock = null;

@@ -162,6 +162,26 @@ export class Session extends Emitter {
     if (Date.now() - this.lastPosSent >= CONFIG.net.posSendSec * 1000) this.sendPos();
   }
 
+  // The host never came back: call the match off on this phone. Only our
+  // own numbers are known here, so the board is just this player.
+  abandon() {
+    const s = this.snap;
+    if (!s || this.abandoned) return;
+    const T = this.T();
+    const me = s.me;
+    s.result = {
+      winner: 'none', reason: 'host-lost', mode: s.mode,
+      L: Math.round(Math.max(0, (T - s.headT) / 1000)),
+      leftSec: Math.round(Math.max(0, (s.endT - T) / 1000)),
+      lastCatch: null, survivors: [],
+      board: [{ id: me.id, name: me.name, startRole: me.startRole, role: me.role, earned: me.earned, gc: me.gc, catches: me.catches, pings: me.pings, caughtL: me.caughtL, caughtBy: null, caughtWhy: null, dropped: false }]
+    };
+    s.phase = 'ended';
+    s.paused = false;
+    this.abandoned = true;
+    this.emit('update');
+  }
+
   close() {
     this.closed = true;
     clearInterval(this.beat);

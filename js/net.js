@@ -176,6 +176,12 @@ export class ClientNet extends Emitter {
     clearTimeout(this.dialTimer);
     const gen = ++this.gen;
     this._set({ attempt: this.state.attempt + 1 });
+    if (navigator.onLine === false) {
+      // The browser knows it has no network: fail fast and count the attempt.
+      this._set({ cause: 'self' });
+      this.dialTimer = setTimeout(() => gen === this.gen && this._fail('offline'), 1000);
+      return;
+    }
     this.dialTimer = setTimeout(() => gen === this.gen && this._fail('timeout'), N.dialTimeoutSec * 1000);
     if (this.state.status === 'reconnecting') this._probe(gen);
 
