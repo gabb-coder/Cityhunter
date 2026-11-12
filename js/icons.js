@@ -35,7 +35,7 @@ const P = {
   noGps: '<path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11Z"/><path d="M4 4l16 16"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4Z"/>',
   replay: '<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  gear: '<path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2.5"/><circle cx="9" cy="12" r="2.5"/><circle cx="17" cy="18" r="2.5"/>',
   send: '<path d="M4 20l17-8L4 4l3 8Z"/><path d="M7 12h8"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
   play: '<path d="M7 4l13 8-13 8Z"/>',

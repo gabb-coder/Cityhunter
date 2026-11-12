@@ -25,6 +25,7 @@ export const CONFIG = {
   // GPS lost / weak.
   gps: {
     lostAfterSec: 10,        // no fix for this long = GPS lost
+    keepAliveMaxAgeSec: 30,  // a phone standing still may reuse a fix this old
     graceSec: 120,           // grace before the host is told
     weakAccuracyM: 30,       // accuracy worse than this shows a HUD warning
     minMoveM: 4              // movement needed to record a route point
@@ -71,7 +72,34 @@ export const CONFIG = {
     maxPlayers: 16
   },
 
-  chat: { maxLength: 200, history: 60 }
+  chat: { maxLength: 200, history: 60 },
+
+  // Map tiles, one layer per theme.
+  // CARTO's dark_all / light_all now answer "API key required" without a
+  // key, so the default is OpenStreetMap's standard tiles: darkened with a
+  // CSS filter for the dark theme, lightly muted for the sun theme.
+  // To use CARTO (or any other provider) put its URL template here, for
+  // example 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+  // plus whatever key parameter your CARTO account gives you.
+  map: {
+    zoom: 17,
+    tiles: {
+      dark: {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        subdomains: 'abc',
+        maxNativeZoom: 19,
+        filter: 'invert(1) hue-rotate(180deg) saturate(0.3) brightness(0.8) contrast(0.92)',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+      },
+      sun: {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        subdomains: 'abc',
+        maxNativeZoom: 19,
+        filter: 'grayscale(0.6) contrast(1.08) brightness(1.02)',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+      }
+    }
+  }
 };
 
 export const ECONOMY = {

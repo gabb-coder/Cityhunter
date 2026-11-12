@@ -4,9 +4,11 @@
 //   weak  accuracy worse than CONFIG.gps.weakAccuracyM
 //   lost  no fix for CONFIG.gps.lostAfterSec
 //
-// watchPosition alone is not enough: a phone that is standing still may not
-// fire callbacks for a long time. A light getCurrentPosition poll keeps the
-// "last fix" time honest, so "lost" really means the device has no position.
+// watchPosition alone is not enough: a phone that is standing still (a prey
+// hiding, say) may not fire callbacks for a while. A light getCurrentPosition
+// poll asks the device whether it still vouches for a recent position
+// (CONFIG.gps.keepAliveMaxAgeSec), so "lost" means the device really has
+// nothing, not that the player stopped moving.
 
 import { CONFIG } from './config.js';
 import { Emitter, dist, bearing } from './util.js';
@@ -86,7 +88,7 @@ export class Geo extends Emitter {
     if (quiet > C.lostAfterSec) this._status('lost');
     // Keep-alive poll while the watch is quiet.
     if (!this.simulated && !this.blocked && quiet > 4 && Math.round(quiet) % 4 === 0) {
-      navigator.geolocation.getCurrentPosition((p) => this._onPos(p), () => {}, { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 });
+      navigator.geolocation.getCurrentPosition((p) => this._onPos(p), () => {}, { enableHighAccuracy: true, maximumAge: C.keepAliveMaxAgeSec * 1000, timeout: 5000 });
     }
     if (this.simulated && !this.blocked && this.fix) this._fix(this.fix.lat, this.fix.lng, this.fix.acc, this.fix.hdg);
   }

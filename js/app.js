@@ -4,7 +4,6 @@
 import { CONFIG } from './config.js';
 import { store, uid, makeCode, buzz, showCode } from './util.js';
 import { app } from './state.js';
-import { Geo } from './geo.js';
 import { HostNet, ClientNet, LocalLink } from './net.js';
 import { Host } from './host.js';
 import { Session } from './client.js';
@@ -12,12 +11,17 @@ import { showScreen, setLayer, render, toast } from './ui/core.js';
 import './ui/home.js';
 import './ui/lobby.js';
 import './ui/reveal.js';
+import './ui/game.js';
+import './ui/shop.js';
+import './ui/chat.js';
+import './voice.js';
+import { installPlay } from './host-play.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [];
+app.hostFeatures = [installPlay];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
@@ -27,7 +31,6 @@ if (params.get('ps')) {
   CONFIG.net.peerServer = { host: h, port: Number(port) || 9000, path: '/', secure: location.protocol === 'https:' && h !== 'localhost' };
 }
 
-app.geo = new Geo();
 if (params.get('sim')) {
   // ?sim=lat,lng -> fake GPS; tap the map to walk
   const [lat, lng] = params.get('sim').split(',').map(Number);
