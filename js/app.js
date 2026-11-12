@@ -123,7 +123,7 @@ async function hostGame(name, saved = null) {
     net = new HostNet(code);
     net.start({ keepTrying: true });   // registers when the old ID frees up
   } else {
-    toast('Opening lobby…');
+    toast('Opening lobby…', '', 1500);
     for (let i = 0; ; i++) {
       code = makeCode(CONFIG.lobby.codeLength);
       net = new HostNet(code);
@@ -159,7 +159,7 @@ function joinGame(name, code, rejoin = false) {
   const session = new Session({ link: net, token: myToken(), name, isHost: false, geo: app.geo });
   if (rejoin) app.ui.mapOpen = true;
   bind(session);
-  toast(rejoin ? 'Rejoining ' + showCode(code) + '…' : 'Joining ' + showCode(code) + '…');
+  toast(rejoin ? 'Rejoining ' + showCode(code) + '…' : 'Joining ' + showCode(code) + '…', '', 1500);
   net.on('state', (st) => {
     if (st.status !== 'failed') return;
     cleanup();
