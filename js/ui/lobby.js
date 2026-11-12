@@ -74,7 +74,9 @@ function renderLobby() {
     '<header class="topbar">' +
       '<button type="button" class="icon-btn sm" data-act="leave" aria-label="Leave lobby">' + icon('chevLeft', 22, 2.5) + '</button>' +
       '<h1>LOBBY</h1>' +
-      '<span class="chip chip-line">' + (host ? 'HOST' : 'PLAYER') + '</span>' +
+      (host
+        ? '<button type="button" class="chip chip-line" data-act="admin" aria-label="Open host console">HOST' + icon('gear', 16, 2.25) + '</button>'
+        : '<span class="chip chip-line">PLAYER</span>') +
     '</header>' +
     '<div class="scroll lobby-body">' +
       '<section class="card code-card" aria-label="Lobby code">' +

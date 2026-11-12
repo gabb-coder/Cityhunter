@@ -1,1 +1,58 @@
-/* filled in by a later phase */
+/* Results, route replay, host console */
+
+/* ---------- 9. results ---------- */
+.results { display: flex; flex-direction: column; gap: 22px; padding: 24px 16px 24px; }
+.res-head { display: flex; flex-direction: column; gap: 10px; }
+.res-head .kicker { color: var(--muted); }
+.res-head h1 { font-size: min(72px, 18.5cqw); line-height: 0.9; letter-spacing: -0.01em; }
+.res-head.hunter h1 { color: var(--hunter-ink); }
+.res-head.prey h1 { color: var(--prey-ink); }
+.res-head p { font-size: 16px; color: var(--soft); max-width: 340px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat {
+  padding: 12px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--bd-soft);
+  display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-label); color: var(--muted); font-weight: var(--fw-med); line-height: 1.25;
+}
+.stat .mono { font-size: 24px; line-height: 1; }
+
+.board { display: flex; flex-direction: column; gap: 8px; }
+.rank { min-height: 60px; padding: 8px 12px; border-radius: 14px; display: flex; align-items: center; gap: 12px; }
+.rank.you { border: 2px solid var(--lime-bd); background: var(--lime-tint); }
+[data-theme='dark'] .rank.you { border-color: var(--lime); }
+.rank-n { width: 24px; text-align: center; font-size: 18px; color: var(--muted); }
+.rank.you .rank-n { color: var(--lime-ink); }
+.rank-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rank-name { font-size: 15px; letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+.rank-side .mono { font-size: 15px; }
+
+.route { overflow: hidden; }
+.route.empty { padding: 20px 16px; }
+.route-svg { display: block; width: 100%; height: auto; background: var(--ground); }
+.route-line { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.route-line.prey { stroke: var(--prey-dot); }
+.route-line.hunter { stroke: var(--hunter); }
+.route-ring { fill: none; stroke: var(--text); stroke-width: 3; }
+.route-end { stroke: var(--dot-ring); stroke-width: 2.5; }
+.route-end.start { fill: var(--text); }
+.route-end.prey { fill: var(--prey-dot); }
+.route-end.hunter { fill: var(--hunter); }
+.route-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--bd-soft); }
+.route-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.route-text strong { font-weight: var(--fw-bold); font-size: 15px; }
+
+.res-foot { flex-direction: row; }
+.res-foot .btn { flex: 1; min-height: 64px; }
+.res-foot .rematch { flex: 1.5; font-size: 20px; letter-spacing: 0.04em; }
+
+/* ---------- host console ---------- */
+.admin-body { padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 24px; }
+.admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.admin-grid .wide { grid-column: 1 / -1; }
+.admin-player { padding: 12px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px; }
+.admin-row { display: flex; align-items: center; gap: 12px; }
+.admin-gc { font-size: 13px; white-space: nowrap; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-actions .btn { flex: 1; white-space: nowrap; }
+button.chip-line { background: transparent; min-height: 44px; padding: 0 12px; cursor: pointer; }

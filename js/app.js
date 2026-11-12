@@ -15,15 +15,18 @@ import './ui/game.js';
 import './ui/shop.js';
 import './ui/chat.js';
 import './ui/catch.js';
+import './ui/results.js';
+import './ui/admin.js';
 import './voice.js';
 import { installPlay } from './host-play.js';
 import { installCatch } from './host-catch.js';
+import { installAdmin } from './host-admin.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay, installCatch];
+app.hostFeatures = [installPlay, installCatch, installAdmin];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
@@ -91,6 +94,7 @@ function bind(session) {
     const why = {
       'in-progress': 'That match has already started',
       full: 'That lobby is full',
+      kicked: 'The host removed you from that lobby',
       bad: 'Could not join that lobby'
     }[reason] || 'Could not join that lobby';
     cleanup();

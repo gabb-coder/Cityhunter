@@ -186,6 +186,7 @@ export class Host {
 
     let p = this.all().find((q) => q.token === token);
     if (p && p.cid === 'local') return reject('bad');
+    if ((p && p.kicked) || (G.banned || []).includes(token)) return reject('kicked');
     if (p) {
       // A returning player: swap the link, keep everything else.
       if (p.cid != null && p.cid !== cid) {
