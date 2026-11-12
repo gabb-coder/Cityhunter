@@ -59,9 +59,14 @@ function updateMap() {
 
   map.pad.top = ($('#hud').offsetHeight || 100) + 24;
   map.pad.bottom = ($('#sheet').offsetHeight || 300) + 8;
-  $('#map-btns').style.bottom = map.pad.bottom + 12 + 'px';
+  // Map buttons sit above the sheet, and above any alert card docked on it.
+  let lift = 0;
+  for (const el of document.querySelectorAll('#oz:not([hidden]) .oz-bottom, #gps-sheet.min:not([hidden])')) lift += el.offsetHeight + 12;
+  $('#map-btns').style.bottom = map.pad.bottom + 12 + lift + 'px';
   const hud = $('#hud');
-  const below = hud.offsetTop + hud.offsetHeight + 8;
+  // Banners and toasts go under whichever top card is showing.
+  const ozTop = document.querySelector('#oz:not([hidden]) .oz-top');
+  const below = (ozTop ? ozTop.offsetTop + ozTop.offsetHeight : hud.offsetTop + hud.offsetHeight) + 8;
   $('#banners').style.top = below + 'px';
   // Toasts drop in under the HUD and banners instead of covering them.
   $('#toasts').style.top = app.ui.layer ? '' : below + $('#banners').offsetHeight + ($('#banners').offsetHeight ? 8 : 0) + 'px';

@@ -1,1 +1,74 @@
-/* filled in by a later phase */
+/* GPS lost, outside the zone, connection lost / host offline */
+
+/* ---------- 10. GPS signal lost ---------- */
+.gps-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 26;
+  padding: 22px 20px max(24px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 2px solid var(--hunter-ink);
+  border-radius: 24px 24px 0 0;
+  display: flex; flex-direction: column; gap: 16px;
+  max-height: 86%; overflow-y: auto;
+}
+[data-theme='sun'] .gps-sheet { border-top-width: 3px; }
+.gps-head { display: flex; align-items: center; gap: 12px; }
+.gps-head h1 { font-size: min(30px, 7.7cqw); }
+.gps-ico { color: var(--on-hunter); display: flex; align-items: center; justify-content: center; }
+.gps-ico.big { width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px; background: var(--hunter); }
+#gps-body { font-size: 16px; line-height: 1.5; color: var(--soft); }
+.grace { padding: 14px; border-radius: 14px; background: var(--inset); border: 1px solid var(--bd-soft); display: flex; flex-direction: column; gap: 10px; }
+.grace-top { display: flex; align-items: baseline; justify-content: space-between; }
+.grace-clock { font-size: 22px; color: var(--hunter-ink); }
+.grace .bar > i { background: var(--hunter); }
+.gps-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gps-btns .btn { font-size: 15px; padding: 0 8px; }
+.gps-hide { min-height: 44px; border: 0; text-decoration: underline; }
+
+.gps-sheet.min {
+  left: 12px; right: 12px; bottom: calc(var(--sheet-h, 300px) + 12px);
+  padding: 0; border: 0; background: none; border-radius: 14px; overflow: visible;
+}
+.gps-bar {
+  width: 100%; min-height: 56px; padding: 8px 14px; border-radius: 14px;
+  background: var(--hunter); color: var(--on-hunter);
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  box-shadow: var(--shadow);
+}
+.gps-bar-text { flex: 1; display: flex; flex-direction: column; line-height: 1.2; font-size: 14px; font-weight: var(--fw-semi); }
+.gps-bar-text strong { font-family: var(--ff-head); font-size: 17px; }
+.gps-show { font-weight: 800; font-size: 14px; text-decoration: underline; }
+
+.steps-list { display: flex; flex-direction: column; gap: 12px; font-size: 15px; line-height: 1.45; list-style: decimal; padding-left: 20px; }
+
+/* ---------- 11. outside the zone ---------- */
+#zone-border { position: absolute; inset: 0; z-index: 30; pointer-events: none; box-shadow: inset 0 0 0 6px var(--hunter); }
+[data-theme='sun'] #zone-border { box-shadow: inset 0 0 0 8px var(--hunter); }
+#oz { position: absolute; inset: 0; z-index: 24; pointer-events: none; }
+.oz-top {
+  position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 14px);
+  padding: 16px; border-radius: 18px;
+  background: var(--hunter); color: var(--on-hunter);
+  display: flex; flex-direction: column; gap: 6px; pointer-events: auto;
+  box-shadow: var(--shadow);
+}
+.oz-kicker { font-size: 12px; letter-spacing: 0.14em; }
+.oz-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.oz-row h1 { font-size: min(34px, 8.7cqw); line-height: 0.95; }
+.oz-clock { font-size: min(44px, 11.3cqw); line-height: 0.9; }
+.oz-top p { margin-top: 4px; font-size: 15px; font-weight: var(--fw-semi); line-height: 1.4; }
+.oz-bottom {
+  position: absolute; left: 12px; right: 12px; bottom: calc(var(--sheet-h, 300px) + 12px);
+  padding: 14px; border-radius: 18px; background: var(--surface);
+  display: flex; align-items: center; gap: 14px; pointer-events: auto;
+  box-shadow: var(--shadow);
+}
+.oz-arrow {
+  width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid var(--lime-ink); color: var(--lime-ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.oz-arrow svg path { fill: var(--lime-ink); }
+[data-theme='sun'] .oz-arrow { background: #0A0C0B; border-color: #0A0C0B; color: var(--lime); }
+[data-theme='sun'] .oz-arrow svg path { fill: var(--lime); }
+.oz-dir { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--muted); font-weight: var(--fw-med); }
+.oz-dir .head { font-size: 24px; color: var(--text); }
