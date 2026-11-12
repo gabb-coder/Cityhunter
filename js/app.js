@@ -14,14 +14,16 @@ import './ui/reveal.js';
 import './ui/game.js';
 import './ui/shop.js';
 import './ui/chat.js';
+import './ui/catch.js';
 import './voice.js';
 import { installPlay } from './host-play.js';
+import { installCatch } from './host-catch.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay];
+app.hostFeatures = [installPlay, installCatch];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
