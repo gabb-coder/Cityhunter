@@ -1,0 +1,16 @@
+{
+  "name": "cityhunter-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-player browser tests for City Hunter. Dev only: the game itself has no build step and no dependencies.",
+  "scripts": {
+    "test": "playwright test",
+    "servers": "node servers.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "jsqr": "1.4.0",
+    "peer": "1.0.2",
+    "pngjs": "7.0.0"
+  }
+}
