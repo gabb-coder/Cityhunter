@@ -9,7 +9,8 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.0.0',
+  version: '2.1.0',
+  protocol: 3,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
   catch: {
@@ -63,6 +64,20 @@ export const CONFIG = {
     hostOfflineHoldSec: 180, // match stays paused this long without the host
     hostSaveSec: 2,          // host writes its recovery snapshot this often
     lobbyDropSec: 45         // offline lobby players are removed after this
+  },
+
+  // Fair play. Checked by the host from each phone's reported positions.
+  fair: {
+    maxSpeedMps: 12,         // faster than this between two fixes is flagged (12 m/s = 43 km/h)
+    jumpMinM: 80,            // ...but only for moves of at least this far (GPS noise is smaller)
+    flagRepeatSec: 30,       // the host is told at most this often per player
+    holdRadiusM: 30,         // hunters must stay this close to their start during the head start
+    holdPenaltySec: 60       // a hunter outside it at release cannot catch for this long (0 = warn only)
+  },
+
+  // "Need help" button.
+  safety: {
+    showHelperLocation: true // everyone sees where the player who asked for help is
   },
 
   lobby: {

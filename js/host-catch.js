@@ -62,6 +62,7 @@ export function installCatch(host) {
 
     if (h.role !== 'hunter' || h.dropped || g.phase !== 'live' || g.paused) return reply(false, 'state');
     if (!q || q.role !== 'prey' || q.dropped) return reply(false, 'state');
+    if (h.penaltyT > g.T) return reply(false, 'penalty', { lockSec: Math.ceil((h.penaltyT - g.T) / 1000) });
     if (h.lock.untilT > g.T) return reply(false, 'locked', { lockSec: Math.ceil((h.lock.untilT - g.T) / 1000) });
     if (!range(h, q).inRange) return reply(false, 'range');
     if (inSafeHouse(q)) return reply(false, 'safe');

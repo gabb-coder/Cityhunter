@@ -1,7 +1,8 @@
 // Screens 7 and 8: Confirm catch (hunter), Tagged (prey), and the
 // "you are now a hunter" conversion screen.
 
-import { $, esc, setHTML, clock, metres, buzz, joinNames, plural } from '../util.js';
+import { $, esc, setHTML, clock, metres, joinNames, plural } from '../util.js';
+import { cue } from '../sound.js';
 import { icon } from '../icons.js';
 import { CONFIG, ECONOMY } from '../config.js';
 import { app, snap } from '../state.js';
@@ -38,6 +39,7 @@ function errorText(m) {
   switch (m.reason) {
     case 'pin': return 'Wrong PIN. ' + plural(m.triesLeft, 'try', 'tries') + ' left.';
     case 'locked': return 'Too many wrong PINs. Locked for ' + m.lockSec + ' s.';
+    case 'penalty': return 'Head-start penalty: you cannot catch for another ' + m.lockSec + ' s.';
     case 'range': return 'Too far away. Get within ' + C.rangeM + ' m and try again.';
     case 'safe': return 'They are inside a Safe House. Wait it out.';
     default: return 'That player cannot be caught right now.';
@@ -174,11 +176,11 @@ app.bus.on('session', (session) => {
     st.busy = false;
     if (m.ok) {
       st.done = { name: m.name, gc: m.gc, left: m.left };
-      buzz([80, 60, 200]);
+      cue('caught');
     } else {
       st.pin = '';
       st.error = errorText(m);
-      buzz(300);
+      cue('wrong');
     }
     render();
   });
@@ -207,7 +209,7 @@ function renderTagged() {
   const me = s.me;
   // A hunter started a catch on me: jump to the PIN screen.
   if (me.role === 'prey' && me.tag && me.tag.key !== app.ui.tagDismissed && app.ui.layer !== 'tagged' && app.ui.mapOpen) {
-    buzz([200, 100, 200]);
+    cue('tagged');
     setLayer('tagged');
   }
   if (app.ui.layer !== 'tagged') return;
@@ -238,7 +240,7 @@ function renderTagged() {
 app.bus.on('ev:converted', (e) => {
   app.ui.converted = e;
   app.ui.selfTag = false;
-  buzz([300, 120, 300]);
+  cue('converted');
   if (app.session && app.session.inMatch) setLayer('converted');
 });
 

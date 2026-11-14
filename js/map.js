@@ -54,8 +54,8 @@ export class MapView {
   applyTheme() {
     const sun = theme.get() === 'sun';
     if (this.tiles) this.tiles.remove();
-    const t = CONFIG.map.tiles[sun ? 'sun' : 'dark'];
-    this.tiles = L.tileLayer(t.url, { subdomains: t.subdomains || 'abc', maxZoom: 20, maxNativeZoom: t.maxNativeZoom || 19, attribution: t.attribution });
+    const t = tileConfig();
+    this.tiles = makeTileLayer();
     this.tiles.addTo(this.map);
     this.tiles.bringToBack();
     this.map.getPane('tilePane').style.filter = t.filter || '';
@@ -207,4 +207,44 @@ export class MapView {
     if (it.label != null) cur.tag = add(L.marker(ll, { interactive: false, keyboard: false, icon: tagIcon('', '') }));
     return cur;
   }
+}
+
+// ---------------------------------------------------------------- helpers
+export function tileConfig() {
+  return CONFIG.map.tiles[theme.get() === 'sun' ? 'sun' : 'dark'];
+}
+
+export function makeTileLayer() {
+  const t = tileConfig();
+  return L.tileLayer(t.url, { subdomains: t.subdomains || 'abc', maxZoom: 20, maxNativeZoom: t.maxNativeZoom || 19, attribution: t.attribution });
+}
+
+// A small non-interactive map as plain HTML (tile images + a circle), so it
+// can live inside screens that are re-rendered as strings.
+export function staticMap(center, radiusM, height = 150) {
+  const t = tileConfig();
+  const latRad = (center.lat * Math.PI) / 180;
+  const wantMpp = (2 * radiusM) / (0.72 * height);            // metres per pixel that fits the circle
+  const z = Math.max(3, Math.min(t.maxNativeZoom || 19, Math.floor(Math.log2((156543.03392 * Math.cos(latRad)) / wantMpp))));
+  const n = 2 ** z;
+  const cx = ((center.lng + 180) / 360) * n * 256;
+  const cy = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n * 256;
+  const mpp = (156543.03392 * Math.cos(latRad)) / n;
+  const d = (2 * radiusM) / mpp;
+  const subs = t.subdomains || 'abc';
+  let tiles = '';
+  for (let tx = Math.floor((cx - 260) / 256); tx <= Math.floor((cx + 260) / 256); tx++) {
+    for (let ty = Math.floor((cy - height / 2) / 256); ty <= Math.floor((cy + height / 2) / 256); ty++) {
+      if (ty < 0 || ty >= n) continue;
+      const x = ((tx % n) + n) % n;
+      const url = t.url.replace('{s}', subs[(x + ty) % subs.length]).replace('{z}', z).replace('{x}', x).replace('{y}', ty).replace('{r}', '');
+      tiles += '<img alt="" src="' + url + '" width="256" height="256" style="left:' + Math.round(tx * 256 - cx) + 'px;top:' + Math.round(ty * 256 - cy) + 'px">';
+    }
+  }
+  return '<div class="smap" style="height:' + height + 'px" role="img" aria-label="Map of the play zone">' +
+    '<div class="smap-tiles" style="filter:' + (t.filter || 'none') + '">' + tiles + '</div>' +
+    '<span class="smap-zone" style="width:' + d.toFixed(0) + 'px;height:' + d.toFixed(0) + 'px"></span>' +
+    '<span class="smap-dot"></span>' +
+    '<span class="smap-attr">' + t.attribution.replace(/<[^>]+>/g, '').replace('&copy;', '©') + '</span>' +
+  '</div>';
 }

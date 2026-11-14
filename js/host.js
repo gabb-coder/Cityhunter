@@ -31,20 +31,21 @@ function matchFields() {
     catches: 0, pings: 0,
     tag: null, selfTag: false,
     lock: { wrong: 0, untilT: 0 },
+    hold: null, penaltyT: 0, flags: { jumps: 0, lastAt: 0 },
     ev: []
   };
 }
 
 function newGame(code) {
   return {
-    v: 2, code,
+    v: 3, code,
     phase: 'lobby',               // lobby | headstart | live | ended
     mode: 'DEAD_RECKONING',
     rules: { ...MODES.DEAD_RECKONING.rules },
     round: 0,
     T: 0, headT: 0, endT: 0, nextPingT: 0, pingNo: 0,
     paused: false, pauseReason: null,
-    zone: null, lock: null,
+    zone: null, zoneCenter: null, lock: null, help: null,
     players: {}, order: [], hostPid: null, hunterStack: [],
     decoys: [], chat: { all: [], prey: [], hunter: [] },
     evN: 0, chatN: 0,
@@ -58,7 +59,7 @@ export class Host {
     this.local = local;
     this.G = saved || newGame(code);
     this.handlers = {};
-    this.hooks = { tick: [], live: [], view: [], start: [], convert: [], end: [], hello: [], lobby: [] };
+    this.hooks = { tick: [], live: [], view: [], start: [], convert: [], end: [], hello: [], lobby: [], pos: [], release: [] };
     this.cids = new Map();        // connection id -> player id
     this.dirty = true;
     this.lastTick = Date.now();
@@ -183,6 +184,8 @@ export class Host {
       this.net.drop(cid);
     };
     if (!token || !name) return reject('bad');
+    // Phones on an older cached copy of the app would speak a different protocol.
+    if (msg.v !== CONFIG.protocol) return reject('version');
 
     let p = this.all().find((q) => q.token === token);
     if (p && p.cid === 'local') return reject('bad');
@@ -273,8 +276,11 @@ export class Host {
       if (!this.inMatch) return;
       const lat = Number(m.lat), lng = Number(m.lng);
       if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
-      p.pos = { lat, lng, acc: Math.max(1, Math.min(5000, Number(m.acc) || 50)), hdg: isFinite(m.hdg) ? Number(m.hdg) : null };
-      p.posAt = Date.now();
+      const next = { lat, lng, acc: Math.max(1, Math.min(5000, Number(m.acc) || 50)), hdg: m.hdg != null && isFinite(m.hdg) ? Number(m.hdg) : null };
+      const now = Date.now();
+      for (const fn of this.hooks.pos) fn(p, next, now);
+      p.pos = next;
+      p.posAt = now;
     });
 
     this.on('ready', lobbyOnly((p, m) => {
@@ -288,6 +294,12 @@ export class Host {
         G.rules = { ...MODES[m.mode].rules };
       }
       if (m.rule && RULE_OPTIONS[m.rule] && RULE_OPTIONS[m.rule].includes(m.value)) G.rules[m.rule] = m.value;
+      // Zone centre picked on the map (null = wherever the host stands at start).
+      if ('zone' in m) {
+        const z = m.zone;
+        const ok = z && isFinite(z.lat) && isFinite(z.lng) && Math.abs(z.lat) <= 90 && Math.abs(z.lng) <= 180;
+        G.zoneCenter = ok ? { lat: Number(z.lat), lng: Number(z.lng) } : null;
+      }
       if (m.hunters === 1) {
         const pool = this.all().filter((q) => q.role === 'prey');
         if (pool.length > 1) this.setLobbyRole(pool[Math.floor(Math.random() * pool.length)], 'hunter');
@@ -335,8 +347,9 @@ export class Host {
     const nHunters = list.filter((q) => q.role === 'hunter').length;
     if (list.length < CONFIG.lobby.minPlayers) return this.note(p, 'You need at least ' + CONFIG.lobby.minPlayers + ' players');
     if (!nHunters || nHunters === list.length) return this.note(p, 'You need at least one hunter and one prey');
-    const lat = Number(center && center.lat), lng = Number(center && center.lng);
-    if (!isFinite(lat) || !isFinite(lng)) return this.note(p, 'Waiting for your GPS fix to set the play zone');
+    const c = G.zoneCenter || center;
+    const lat = Number(c && c.lat), lng = Number(c && c.lng);
+    if (!isFinite(lat) || !isFinite(lng)) return this.note(p, 'Set the play zone on the map, or wait for your GPS fix');
 
     G.round++;
     G.phase = 'headstart';
@@ -349,6 +362,7 @@ export class Host {
     G.pingNo = 0;
     G.zone = { lat, lng, r: G.rules.zoneRadiusM };
     G.lock = null;
+    G.help = null;
     G.decoys = [];
     G.lastCatch = null;
     G.result = null;
@@ -383,6 +397,7 @@ export class Host {
     G.paused = false;
     G.pauseReason = null;
     G.zone = null;
+    G.help = null;
     G.result = null;
     for (const q of this.all().slice()) {
       if (!q.conn && !this.isHost(q)) {
@@ -459,6 +474,7 @@ export class Host {
     G.phase = 'ended';
     G.paused = false;
     G.pauseReason = null;
+    G.help = null;
     for (const q of this.all()) q.tag = null;
     for (const fn of this.hooks.end) fn();
     this.dirty = true;
@@ -496,6 +512,7 @@ export class Host {
       G.T += dt;
       if (G.phase === 'headstart' && G.T >= G.headT) {
         G.phase = 'live';
+        for (const fn of this.hooks.release) fn();
         this.evAll({ type: 'release' });
       }
       if (G.phase === 'live') {
@@ -524,6 +541,7 @@ export class Host {
       code: G.code, mode: G.mode, rules: G.rules, round: G.round,
       headT: G.headT, endT: G.endT, nextPingT: G.nextPingT,
       zone: this.zoneNow(),
+      zoneCenter: G.phase === 'lobby' ? G.zoneCenter : undefined,
       players: this.all().map((q) => ({
         id: q.id, name: q.name, role: q.role, ready: q.ready, conn: q.conn,
         host: this.isHost(q), you: q === p, dropped: q.dropped,

@@ -10,6 +10,7 @@ export function installAdmin(host) {
       host.pause('admin');
     },
     resume() {
+      G().help = null;
       host.resume();
     },
     end() {

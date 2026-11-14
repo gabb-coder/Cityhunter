@@ -39,7 +39,7 @@ export class Session extends Emitter {
   }
 
   hello() {
-    this.link.send({ k: 'hello', token: this.token, name: this.name });
+    this.link.send({ k: 'hello', token: this.token, name: this.name, v: CONFIG.protocol });
   }
 
   send(msg) {
@@ -152,7 +152,7 @@ export class Session extends Emitter {
     if (!this.inMatch || !fix || this.geo.blocked) return;
     if (Date.now() - fix.at > CONFIG.gps.lostAfterSec * 1000) return;
     this.lastPosSent = Date.now();
-    this.send({ k: 'pos', lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: fix.hdg });
+    this.send({ k: 'pos', lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: this.geo.heading() });
   }
 
   heartbeat() {

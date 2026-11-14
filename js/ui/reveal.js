@@ -77,6 +77,7 @@ act('pin-toggle', () => {
   render();
 });
 act('open-map', () => {
+  app.geo.enableCompass();   // needs a tap on iPhone
   app.ui.mapOpen = true;
   app.ui.pinShown = false;
   app.go.route();

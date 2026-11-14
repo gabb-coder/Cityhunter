@@ -1,7 +1,8 @@
 // Screens 4 and 6: the live map for prey and hunters.
 // One Leaflet map; the HUD, banners and bottom sheet change with your role.
 
-import { $, esc, setHTML, setText, clock, ago, metres, dist, buzz, plural } from '../util.js';
+import { $, esc, setHTML, setText, clock, ago, metres, dist, plural } from '../util.js';
+import { cue } from '../sound.js';
 import { icon } from '../icons.js';
 import { CONFIG, ECONOMY, ABILITIES, HUNTER_QUICK_ABILITY } from '../config.js';
 import { app, snap } from '../state.js';
@@ -73,7 +74,7 @@ function updateMap() {
   $('#s-game').style.setProperty('--sheet-h', map.pad.bottom + 'px');
 
   map.setZone(s.zone);
-  if (fix) map.setMe({ lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: fix.hdg, role: me.role, ghost: !!me.fx.ghost, stale: app.geo.lost });
+  if (fix) map.setMe({ lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: app.geo.heading(), role: me.role, ghost: !!me.fx.ghost, stale: app.geo.lost });
 
   const items = [];
   for (const pg of s.pings) {
@@ -96,9 +97,15 @@ function updateMap() {
   }
   for (const d of fx.decoys || []) items.push({ id: 'dc' + d.id, type: 'tag', tone: 'lime', lat: d.lat, lng: d.lng, label: 'DECOY · ' + plural(d.left, 'ping') + ' left' });
   if (fx.ghost && fix) items.push({ id: 'ghost', type: 'tag', tone: 'lime', lat: fix.lat, lng: fix.lng, label: 'GHOST · skips next ping', below: true });
+  // Hunters: the circle they must stay in during the head start.
+  if (me.hold && s.phase === 'headstart') {
+    items.push({ id: 'hold', type: 'area', tone: 'lime', lat: me.hold.lat, lng: me.hold.lng, r: me.hold.r, label: 'Stay inside until release' });
+  }
   for (const fn of mapItemHooks) fn(items, s, T);
   map.setItems(items);
 }
+
+let lastPingNo = null;
 
 // ---------------------------------------------------------------- HUD
 function gpsChip() {
@@ -140,6 +147,12 @@ function tickHud() {
     bar.classList.toggle('urgent', urgent);
     $('#hud-ping').classList.toggle('urgent', urgent);
   }
+  // A new round of pings just landed.
+  if (s.pingNo != null && s.pingNo !== lastPingNo) {
+    if (lastPingNo != null && s.pingNo > lastPingNo && s.phase === 'live') cue('ping');
+    lastPingNo = s.pingNo;
+  }
+  if (s.me.penaltyT) setText($('#catch-sub'), catchSub(s));
   updateMap();
   tickSheet(s, T);
 }
@@ -161,18 +174,21 @@ let lastProx = '';
 function renderBanners(s) {
   const out = [];
   const T = app.session.T();
-  if (s.paused) {
+  if (s.paused && !s.help) {   // a help request has its own banner
     out.push('<div class="banner neutral" role="status">' + icon('pause', 20, 2.5) + '<span>' +
       (s.pauseReason === 'isolated' ? 'Paused: waiting for players to reconnect' : 'Match paused by the host') + '</span></div>');
   }
   for (const fn of bannerHooks) fn(out, s, T);
   if (s.phase === 'headstart' && s.me.role === 'hunter') {
-    out.push('<div class="banner hunter" role="status">' + icon('lock', 20, 2.5) + '<span>Hold your position until the head start ends</span></div>');
+    const hold = s.me.hold;
+    out.push(hold && hold.out
+      ? '<div class="banner hunter" role="alert">' + icon('warn', 20, 2.5) + '<span>Go back to your start point: you are ' + metres(hold.d) + ' away. Out of position at release means no catches for ' + CONFIG.fair.holdPenaltySec + ' s.</span></div>'
+      : '<div class="banner hunter" role="status">' + icon('lock', 20, 2.5) + '<span>Hold your position until the head start ends</span></div>');
   }
   const prox = proximity(s);
   if (prox) {
     out.push('<div class="banner hunter" role="status">' + icon('warn', 20, 2.5) + '<span>' + esc(prox.name) + '’s last ping was ' + metres(Math.round(prox.d / 10) * 10) + ' from you</span></div>');
-    if (lastProx !== prox.name) buzz(200);
+    if (lastProx !== prox.name) cue('near');
   }
   lastProx = prox ? prox.name : '';
   if (app.ui.talking) out.push('<div class="banner neutral" role="status">' + icon('mic', 20) + '<span>' + esc(app.ui.talking) + ' is talking</span></div>');
@@ -228,6 +244,7 @@ function nearestPrey(s) {
 
 function catchSub(s) {
   if (s.phase === 'headstart') return 'Locked until the head start ends';
+  if (s.me.penaltyT) return 'Head-start penalty \u00B7 unlocks in ' + clock((s.me.penaltyT - app.session.T()) / 1000);
   const t = (s.targets || []).filter((x) => x.inRange).sort((a, b) => a.d - b.d)[0];
   if (t) return t.name + ' is ' + metres(t.d) + ' away · in range';
   const n = nearestPrey(s);
@@ -254,11 +271,12 @@ function renderSheet(s) {
     const q = ABILITIES[HUNTER_QUICK_ABILITY];
     const qn = me.inv[q.id] || 0;
     const locked = s.phase !== 'live';
+    const noCatch = locked || !!me.penaltyT;
     const quickLabel = qn > 0 ? q.name + ' ×' + qn : me.gc >= q.cost ? q.name + ' · ' + q.cost : q.name + ' · need ' + (q.cost - me.gc);
     const extra = Object.values(ABILITIES).filter((a) => a.side === 'hunter' && a.id !== q.id && ((me.inv[a.id] || 0) > 0 || slotState(a, me, T).on));
     html = handle +
       (min ? '' : wallet(me, '+' + ECONOMY.perCatch + ' for every catch')) +
-      '<button type="button" class="catch-btn" data-act="catch-open"' + (locked ? ' disabled' : '') + '>' + icon('target', 34, 2.5) +
+      '<button type="button" class="catch-btn" data-act="catch-open"' + (noCatch ? ' disabled' : '') + '>' + icon('target', 34, 2.5) +
         '<span class="catch-text"><span class="head">CATCH</span><span class="catch-sub" id="catch-sub">' + esc(catchSub(s)) + '</span></span></button>' +
       (min || !extra.length ? '' : '<div class="slots compact-row' + (extra.length > 3 ? ' many' : '') + '">' + extra.map((a) => slot(a, me, T, true)).join('') + '</div>') +
       '<div class="row3">' +
@@ -287,6 +305,7 @@ function tickSheet(s, T) {
 function mapButtons(s) {
   setHTML($('#map-btns'),
     (s.me.host ? '<button type="button" class="icon-btn" data-act="admin" aria-label="Host console">' + icon('gear', 22) + '</button>' : '') +
+    '<button type="button" class="icon-btn help-btn" data-act="help" aria-label="I need help: pause the match">' + icon('help', 22) + '</button>' +
     themeButton() +
     '<button type="button" class="icon-btn" data-act="recenter" aria-label="Recenter map on me">' + icon('recenter', 22) + '</button>');
 }
@@ -321,10 +340,11 @@ act('quick', () => {
 });
 
 app.bus.on('ev:radar', () => {
-  buzz([200, 100, 200, 100, 200]);
+  cue('radar');
   toast('Radar: a prey is within ' + ABILITIES.radar.rangeM + ' m', 'hunter');
 });
 
 onRender(renderGame);
 onTick(tickHud);
 app.geo.on('fix', () => screen() === 'game' && updateMap());
+app.geo.on('heading', () => screen() === 'game' && updateMap());
