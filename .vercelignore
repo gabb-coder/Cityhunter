@@ -1,0 +1,6 @@
+# Only the game itself is deployed.
+tests
+server
+.github
+render.yaml
+README.md

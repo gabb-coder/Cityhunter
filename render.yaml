@@ -1,0 +1,11 @@
+# One-click deploy of the signalling server on Render (https://render.com).
+# New + > Blueprint > pick this repo. The game itself is NOT deployed here.
+services:
+  - type: web
+    name: cityhunter-signalling
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
