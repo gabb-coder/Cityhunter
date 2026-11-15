@@ -9,7 +9,7 @@ import { HostNet, ClientNet, LocalLink } from './net.js';
 import './diag.js';
 import { Host } from './host.js';
 import { Session } from './client.js';
-import { showScreen, setLayer, render, toast } from './ui/core.js';
+import { showScreen, setLayer, render, toast, closeModal } from './ui/core.js';
 import './ui/home.js';
 import './ui/lobby.js';
 import './ui/reveal.js';
@@ -71,16 +71,35 @@ function myToken() {
 
 function resetUi() {
   Object.assign(app.ui, {
-    mapOpen: false, pinShown: false, shopTab: null, chatTab: 'team', sheetMin: false,
+    mapOpen: false, pinShown: false, shopTab: null, chatTab: 'team',
+    sheetMin: window.innerHeight < 700,   // short screens start with the panel folded so the map is visible
     convertedBanner: null, selfTag: false, tagDismissed: null
   });
   setLayer(null);
 }
 
+// Phases seen so far, to notice the moment a match starts.
+let lastPhase = null;
+
 // ---- pick the screen for the current phase ----
 function route() {
   const s = app.session && app.session.snap;
-  if (!s) return showScreen('home');
+  if (!s) {
+    lastPhase = null;
+    return showScreen('home');
+  }
+  if (app.ui.joining) {
+    app.ui.joining = null;
+    render();
+  }
+  // The match just started while this phone was in the lobby: clear away
+  // lobby chat or any open picker so the role reveal is not hidden.
+  if (lastPhase === 'lobby' && s.phase !== 'lobby') {
+    setLayer(null);
+    closeModal();
+    cue('start');
+  }
+  lastPhase = s.phase;
   if (s.phase === 'lobby') {
     if (app.ui.mapOpen) resetUi();
     showScreen('lobby');
@@ -96,6 +115,7 @@ function route() {
 function bind(session) {
   app.session = session;
   session.on('update', () => {
+    if (session.snap) i18n.setNames(session.snap.players.map((p) => p.name));
     route();
     render();
   });
@@ -127,14 +147,18 @@ function bind(session) {
   app.bus.emit('session', session);
 }
 
-function cleanup() {
+// keepOffer: leave the "Rejoin" card on Home (the match may still be there).
+function cleanup({ keepOffer = false } = {}) {
   if (app.session) app.session.close();
   if (app.host) app.host.stop();
   if (app.net) app.net.destroy();
-  app.bus.emit('cleanup');
+  app.bus.emit('cleanup', { keepOffer });
   app.session = null;
   app.host = null;
   app.net = null;
+  app.ui.joining = null;
+  app.geo.stop();                    // stop reading the location once out of a match
+  closeModal();
   store.del(SESSION_KEY, sessionStorage);
   resetUi();
   route();
@@ -189,12 +213,13 @@ function startLocal({ code, net, saved = null, name }) {
 function joinGame(name, code, rejoin = false, opts = {}) {
   if (app.session) return;
   if (!opts.watch) app.geo.start();        // spectators are never asked for their location
-  const net = new ClientNet(code);
+  const net = new ClientNet(code, { patient: rejoin });
   app.net = net;
+  // Home shows a "Joining…" card until the first snapshot arrives.
+  app.ui.joining = { code, rejoin, watch: !!opts.watch, since: Date.now() };
   const session = new Session({ link: net, token: myToken(), name, isHost: false, geo: app.geo, watch: !!opts.watch });
   if (rejoin) app.ui.mapOpen = true;
   bind(session);
-  toast(rejoin ? 'Rejoining ' + showCode(code) + '…' : 'Joining ' + showCode(code) + '…', '', 1500);
   net.on('state', (st) => {
     if (st.status !== 'failed') return;
     cleanup();
@@ -206,6 +231,7 @@ function joinGame(name, code, rejoin = false, opts = {}) {
     app.bus.emit('joined', { code, host: false, name });
   });
   net.start();
+  render();
 }
 
 function leave() {
@@ -215,7 +241,23 @@ function leave() {
   if (!app.session.isHost) setTimeout(cleanup, 150);
 }
 
-Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup, startLocal });
+// Stop trying to join. A rejoin keeps its card on Home for another go.
+function cancelJoin() {
+  const j = app.ui.joining;
+  if (!j || !app.session || app.session.snap) return;
+  cleanup({ keepOffer: j.rejoin });
+}
+
+// A rejoin waits for the host as long as a live match would.
+setInterval(() => {
+  const j = app.ui.joining;
+  if (!j || !j.rejoin || !app.session || app.session.snap) return;
+  if (Date.now() - j.since < CONFIG.net.hostOfflineHoldSec * 1000) return;
+  cleanup({ keepOffer: true });
+  toast('Could not get back into ' + showCode(j.code) + '. The host may have gone.', 'hunter', 6000);
+}, 1000);
+
+Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup, startLocal, cancelJoin });
 
 // ---- keep the screen awake during a match ----
 let wakeLock = null;

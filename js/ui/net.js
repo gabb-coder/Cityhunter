@@ -32,6 +32,7 @@ function renderNet() {
   const inMatch = sess.inMatch;
   const hostName = (s.players.find((p) => p.host) || {}).name || 'the host';
   const hunter = s.me.role === 'hunter';
+  const watching = s.me.role === 'spectator';
 
   let title, body, facts;
   if (m === 'host') {
@@ -40,15 +41,15 @@ function renderNet() {
       ? 'The host’s phone dropped out, so the match is paused for everyone. Stay where you are: the clock and pings resume the moment the host is back.'
       : 'The host’s phone dropped out. The lobby comes back as soon as they reconnect.';
     facts = inMatch
-      ? [['Match clock', '<span id="net-f1"></span>'], [hunter ? 'Last prey ping' : 'Your last ping', '<span id="net-f2"></span>'], ['If host doesn’t return', 'Match ends, no winner']]
+      ? [['Match clock', '<span id="net-f1"></span>']].concat(watching ? [] : [[hunter ? 'Last prey ping' : 'Your last ping', '<span id="net-f2"></span>']], [['If host doesn’t return', 'Match ends, no winner']])
       : [['Waiting for', esc(hostName)], ['Gives up in', '<span id="net-f3"></span>']];
   } else {
     title = 'CONNECTION LOST';
-    body = inMatch
-      ? 'Your phone lost its connection. The match keeps running, and ' + (hunter ? 'your team sees your last position' : 'hunters see your last ping') + ' until you’re back.'
-      : 'Your phone lost its connection to the lobby. Trying to get you back in.';
+    body = !inMatch ? 'Your phone lost its connection to the lobby. Trying to get you back in.'
+      : watching ? 'Your phone lost its connection. The match keeps running; the live view comes back when you reconnect.'
+      : 'Your phone lost its connection. The match keeps running, and ' + (hunter ? 'your team sees your last position' : 'hunters see your last ping') + ' until you’re back.';
     facts = inMatch
-      ? [['Offline for', '<span id="net-f4"></span>'], ['Match clock', '<span id="net-f1"></span>'], ['Your spot is held for', '<span id="net-f5"></span>']]
+      ? [['Offline for', '<span id="net-f4"></span>'], ['Match clock', '<span id="net-f1"></span>']].concat(watching ? [] : [['Your spot is held for', '<span id="net-f5"></span>']])
       : [['Offline for', '<span id="net-f4"></span>']];
   }
 
@@ -59,7 +60,7 @@ function renderNet() {
       '<p>' + body + '</p>' +
       '<ul class="net-facts">' + facts.map((f) => '<li><span>' + f[0] + '</span><span class="mono">' + f[1] + '</span></li>').join('') + '</ul>' +
       '<div class="net-btns"><button type="button" class="btn btn-lime" data-act="net-retry">Retry now</button>' +
-        '<button type="button" class="btn btn-quiet net-leave" data-act="net-leave">Leave match</button>' + reportLink() + '</div>' +
+        '<button type="button" class="btn btn-quiet net-leave" data-act="net-leave">' + (watching ? 'Stop watching' : inMatch ? 'Leave match' : 'Leave lobby') + '</button>' + reportLink() + '</div>' +
     '</section>');
   tickNet();
 }
@@ -102,9 +103,13 @@ function tickNet() {
 }
 
 act('net-retry', () => app.net && app.net.retryNow());
-act('net-leave', () => confirmModal(
-  { title: 'Leave this match?', body: 'You give up your spot and go back to the home screen.', yes: 'Leave match', tone: 'btn-hunter' },
-  () => app.go.cleanup()));
+act('net-leave', () => {
+  const s = app.session && app.session.snap;
+  if (s && s.me.role === 'spectator') return app.go.cleanup();
+  confirmModal(
+    { title: 'Leave this match?', body: 'You give up your spot and go back to the home screen.', yes: 'Leave match', tone: 'btn-hunter' },
+    () => app.go.cleanup());
+});
 
 app.bus.on('session', (session) => session.on('link', render));
 onRender(renderNet);

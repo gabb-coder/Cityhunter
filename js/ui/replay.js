@@ -103,15 +103,15 @@ export function replayCard(s, mine) {
   const me = scene.routes.find((r) => r.me);
   const everyone = scene.routes.length > 1;
   const note = mine && mine.caughtL != null
-    ? 'Ring: ' + (mine.caughtBy ? 'caught by ' + esc(mine.caughtBy) : 'converted') + ' at ' + clock(mine.caughtL)
-    : 'Blue as prey, orange as hunter';
+    ? (mine.caughtBy ? '<span>Ring: caught by ' + esc(mine.caughtBy) + ' at ' + clock(mine.caughtL) + '</span>' : '<span>Ring: converted at ' + clock(mine.caughtL) + '</span>')
+    : '<span>Blue as prey, orange as hunter</span>';
   const title = me
     ? 'Your route · ' + (me.km >= 1000 ? (me.km / 1000).toFixed(1) + ' km' : metres(me.km))
     : scene.routes.length + ' routes';
   return '<section class="card route" aria-label="Match replay">' +
     '<svg class="route-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Map of ' + (everyone ? 'everyone’s routes' : 'your route') + '" id="replay-svg">' + draw(scene, scene.maxT) + '</svg>' +
     '<div class="route-foot"><span class="route-text"><strong>' + title + '</strong>' +
-      '<span class="small muted">' + note + (everyone ? ' · thick line is you' : '') + '</span></span>' +
+      '<span class="small muted route-note">' + note + (everyone ? '<span>Thick line is you</span>' : '') + '</span></span>' +
       '<span class="mono replay-clock" id="replay-clock"></span>' +
       '<button type="button" class="btn btn-sm" data-act="replay">' + icon('replay', 18) + 'Replay</button></div>' +
   '</section>';

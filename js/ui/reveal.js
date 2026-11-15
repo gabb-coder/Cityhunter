@@ -51,9 +51,9 @@ function renderReveal() {
         '<p class="muted" id="hs-note"></p>' +
       '</section>' +
       card +
-      '<div class="grow"></div>' +
-      '<div class="reveal-foot pad-b"><button type="button" class="btn btn-xl btn-lime" data-act="open-map">OPEN MAP' + icon('arrowRight', 22, 2.5) + '</button></div>' +
-    '</div>');
+    '</div>' +
+    // Outside the scrolling part: the way on is always in view.
+    '<footer class="reveal-foot pad-b"><button type="button" class="btn btn-xl btn-lime" data-act="open-map">OPEN MAP' + icon('arrowRight', 22, 2.5) + '</button></footer>');
   tickReveal();
 }
 

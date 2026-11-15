@@ -8,7 +8,7 @@ import { CONFIG } from '../config.js';
 import { app, snap } from '../state.js';
 import { offsetPoint } from '../map.js';
 import { act, onRender, onTick, screen, render, openModal } from './core.js';
-import { mapItemHooks } from './game.js';
+import { mapItemHooks, bannerHooks } from './game.js';
 
 const GC = CONFIG.gps;
 const ZC = CONFIG.zone;
@@ -22,9 +22,12 @@ function graceLeft() {
   return GC.graceSec - Math.max(0, app.geo.silence() - GC.lostAfterSec);
 }
 
+// Spectators have no position: none of this applies to them.
+const watching = () => { const s = snap(); return !!s && s.me.role === 'spectator'; };
+
 function renderGps() {
   const sheet = $('#gps-sheet');
-  const lost = playing() && app.geo.lost;
+  const lost = playing() && !watching() && app.geo.lost;
   if (!lost) {
     sheet.hidden = true;
     st.gpsMin = false;
@@ -69,7 +72,7 @@ function renderGps() {
 }
 
 function tickGps() {
-  if (!playing() || !app.geo.lost) return;
+  if (!playing() || watching() || !app.geo.lost) return;
   const left = graceLeft();
   for (const el of document.querySelectorAll('#gps-sheet [data-grace]')) setText(el, clock(left));
   const bar = $('#grace-bar');
@@ -103,7 +106,7 @@ act('gps-settings', () => openModal(
 // My own last fix, as a circle that keeps growing while there is no signal.
 mapItemHooks.push((items, s) => {
   const fix = app.geo.fix;
-  if (!app.geo.lost || !fix) return;
+  if (!app.geo.lost || !fix || s.me.role === 'spectator') return;
   const quiet = app.geo.silence();
   const cap = graceLeft() <= 0 ? CONFIG.ping.lostMaxRadiusM : CONFIG.ping.maxRadiusM;
   items.push({
@@ -117,6 +120,7 @@ mapItemHooks.push((items, s) => {
 function zoneState(s) {
   const fix = app.geo.fix;
   const z = s.zone;
+  if (s.me.role === 'spectator') return { out: false };
   if (!z || !fix || app.geo.lost) return s.me.out && s.me.out.sinceT != null ? { out: true, d: null } : { out: false };
   const d = dist(fix, z);
   return { out: d > z.r, d: d - z.r, brg: bearing(fix, z), edge: offsetPoint(z, z.r, bearing(z, fix)) };
@@ -133,7 +137,9 @@ function renderZone() {
   const box = $('#oz');
   const border = $('#zone-border');
   const zs = playing() && s ? zoneState(s) : { out: false };
-  if (!zs.out) {
+  // The full alert is for prey, who are penalised for being out here. A
+  // hunter outside the zone just gets a one-line banner (below).
+  if (!zs.out || s.me.role !== 'prey') {
     box.hidden = true;
     border.hidden = true;
     st.outLocalT = null;
@@ -158,21 +164,16 @@ function renderZone() {
   box.hidden = false;
   border.hidden = false;
 
-  const prey = s.me.role === 'prey';
-  const revealed = prey && s.me.out && s.me.out.revealed;
+  const revealed = s.me.out && s.me.out.revealed;
   if (revealed && !st.revealCued) {
     st.revealCued = true;
     cue('zone');
   }
-  const top = prey
-    ? '<span class="mono oz-kicker">' + (revealed ? 'YOUR LIVE POSITION IS REVEALED' : 'YOU LEFT THE PLAY ZONE') + '</span>' +
+  const top = '<span class="mono oz-kicker">' + (revealed ? 'YOUR LIVE POSITION IS REVEALED' : 'YOU LEFT THE PLAY ZONE') + '</span>' +
       '<div class="oz-row"><h1 class="head">GET BACK IN</h1><span class="mono oz-clock" role="timer" id="oz-clock">' + (revealed ? 'LIVE' : '') + '</span></div>' +
       '<p>' + (revealed
         ? 'Every hunter can see exactly where you are until you’re back inside the zone.'
-        : 'When this hits zero, your exact live position is shown to every hunter until you’re back inside.') + '</p>'
-    : '<span class="mono oz-kicker">YOU LEFT THE PLAY ZONE</span>' +
-      '<div class="oz-row"><h1 class="head">GET BACK IN</h1></div>' +
-      '<p>The hunt is inside the dashed line. Prey out here are revealed to you live.</p>';
+        : 'When this hits zero, your exact live position is shown to every hunter until you’re back inside.') + '</p>';
 
   const dir = zs.d != null
     ? '<span class="oz-arrow"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(' + Math.round(zs.brg) + 'deg)"><path d="M12 2l7 19-7-4-7 4Z"/></svg></span>' +
@@ -195,6 +196,14 @@ function tickZone() {
   const sec = Math.max(0, Math.ceil(left));
   setText(el, Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'));
 }
+
+// A hunter outside the zone: one line, the map stays clear.
+bannerHooks.push((out, s) => {
+  if (s.me.role !== 'hunter' || s.phase !== 'live') return;
+  const zs = zoneState(s);
+  if (!zs.out || zs.d == null) return;
+  out.add(4, '<div class="banner neutral" role="status">' + icon('warn', 20, 2.5) + '<span>You are outside the play zone. Head ' + compass(zs.brg) + ', ' + metres(Math.max(1, zs.d)) + ' to the edge.</span></div>');
+});
 
 // Label the nearest point of the zone edge on the map.
 mapItemHooks.push((items, s) => {

@@ -4,7 +4,7 @@ import { $, esc, setHTML, clock, joinNames, plural } from '../util.js';
 import { icon } from '../icons.js';
 import { MODES } from '../config.js';
 import { app, snap } from '../state.js';
-import { act, onRender, screen } from './core.js';
+import { act, onRender, screen, confirmModal } from './core.js';
 import { replayCard } from './replay.js';
 import { reportLink } from './extras.js';
 
@@ -48,6 +48,7 @@ function renderResults() {
   const top = Math.max(0, ...r.board.map((x) => x.catches));
 
   const survived = mine.startRole === 'prey' ? clock(mine.caughtL == null ? r.L : mine.caughtL) : '—';
+  const watching = me.role === 'spectator';
   const stats =
     '<div class="stat"><span class="mono prey-ink">' + survived + '</span><span>survived as prey</span></div>' +
     '<div class="stat"><span class="mono hunter-ink">' + (mine.catches || 0) + '</span><span>' + (mine.catches === 1 ? 'catch' : 'catches') + ' as hunter</span></div>' +
@@ -69,9 +70,10 @@ function renderResults() {
         '<span class="mono kicker">MATCH OVER · ' + clock(r.L) + ' · ' + esc(MODES[r.mode].name.toUpperCase()) + '</span>' +
         '<h1 class="head">' + h.title + '</h1><p>' + h.text + '</p>' +
       '</section>' +
-      '<section class="block" aria-label="Your match"><div class="block-head"><h2 class="label">Your match</h2>' +
+      // A spectator has no match of their own to show or share.
+      (watching ? '' : '<section class="block" aria-label="Your match"><div class="block-head"><h2 class="label">Your match</h2>' +
         '<button type="button" class="btn btn-sm share-card" data-act="share-card">' + icon('camera', 18) + 'Share result</button></div>' +
-        '<div class="stats">' + stats + '</div></section>' +
+        '<div class="stats">' + stats + '</div></section>') +
       '<section class="block"><h2 class="label">Leaderboard</h2><ol class="board">' + board + '</ol></section>' +
       routeCard +
       reportLink() +
@@ -91,7 +93,17 @@ act('rematch', () => {
   app.go.cleanup();
   app.go.practice(name);
 });
-act('res-home', () => (app.session && app.session.abandoned ? app.go.cleanup() : app.go.leave()));
+act('res-home', () => {
+  const sess = app.session;
+  if (!sess || sess.abandoned) return app.go.cleanup();
+  // The host going Home closes the lobby for everyone still in it.
+  const s = sess.snap;
+  const others = s && s.me.host && !app.practice ? s.players.filter((p) => !p.you && p.conn).length : 0;
+  if (!others) return app.go.leave();
+  confirmModal(
+    { title: 'Close the lobby for everyone?', body: 'You are the host. Going home sends the other ' + (others === 1 ? 'player' : others + ' players') + ' back to their home screen. Tap Rematch instead to play again with the same group.', yes: 'Close the lobby', tone: 'btn-hunter' },
+    () => app.go.leave());
+});
 
 onRender(renderResults);
 app.bus.on('screen', (name) => name === 'results' && renderResults());

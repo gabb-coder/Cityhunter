@@ -75,7 +75,9 @@ function step(host) {
       goal = seen ? seen.ping : zone;
 
       // Close enough to someone for real? Make the catch.
-      const near = prey.filter((q) => q.pos && dist(here, q.pos) <= BOT_CATCH_M)[0];
+      // Bots play by the rules: no catch inside an active Safe House.
+      const safe = (q) => q.fx.safe && q.fx.safe.untilT > G.T && dist(q.pos, q.fx.safe) <= q.fx.safe.r;
+      const near = prey.filter((q) => q.pos && dist(here, q.pos) <= BOT_CATCH_M && !safe(q))[0];
       if (near && near.bot) {
         credit(host, bot, near);
       } else if (near) {
@@ -163,7 +165,7 @@ bannerHooks.push((out, s) => {
   } else {
     tip = 'Now you hunt. Walk to a blue circle, tap CATCH, and type the PIN. In a real match it is on their phone.';
   }
-  out.unshift('<div class="banner lime coach" role="status"><span>' + tip + '</span></div>');
+  out.add(6, '<div class="banner lime coach" role="status"><span>' + tip + '</span></div>');
 });
 
 app.go.practice = startPractice;

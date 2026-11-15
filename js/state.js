@@ -20,9 +20,10 @@ export const app = {
     pinShown: false,
     shopTab: null,
     chatTab: 'team',
-    sheetMin: false,
+    sheetMin: window.innerHeight < 700,   // short screens start with the map panel folded
     convertedBanner: null,
-    selfTag: false,
+    selfTag: false,       // the prey opened the PIN screen themselves
+    joining: null,        // { code, rejoin, watch, since } while a join is under way
     tagDismissed: null
   }
 };
