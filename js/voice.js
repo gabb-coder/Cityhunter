@@ -5,11 +5,14 @@
 // from the host, which only hands them to players on the same side, and an
 // incoming call is only answered if the caller is on that list.
 
-import { $, buzz } from './util.js';
+import { $ } from './util.js';
+import { cue } from './sound.js';
 import { app } from './state.js';
 import { render, toast } from './ui/core.js';
 
 const calls = new Set();     // outgoing
+const incoming = new Map();  // call -> { name, end }
+let talkTimer = null;
 let stream = null;
 let holding = false;
 let boundPeer = null;
@@ -29,10 +32,14 @@ function onCall(call) {
   audio.playsInline = true;
   $('#voice-audio').appendChild(audio);
   const end = () => {
+    if (!incoming.has(call)) return;
+    incoming.delete(call);
     audio.remove();
+    try { call.close(); } catch (e) { /* gone */ }
     if (app.ui.talking === from.name) app.ui.talking = null;
     render();
   };
+  incoming.set(call, { name: from.name, end });
   call.on('stream', (remote) => {
     audio.srcObject = remote;
     audio.play().catch(() => {});
@@ -74,7 +81,8 @@ async function start() {
     return toast('Microphone access is needed for voice', 'hunter');
   }
   if (!holding) return release();   // let go while the permission prompt was open
-  buzz(30);
+  app.session.send({ k: 'voice', on: true });
+  cue('tap');
   setPressed(true, 'Live…');
   for (const t of targets) {
     try {
@@ -87,7 +95,21 @@ async function start() {
   }
 }
 
+// The host relays a teammate's talk start / stop.
+function onVoice(m) {
+  clearTimeout(talkTimer);
+  if (m.on) {
+    app.ui.talking = m.name;
+    talkTimer = setTimeout(() => onVoice({ name: m.name, on: false }), 60000);   // in case the stop is lost
+  } else {
+    for (const c of Array.from(incoming.values())) if (c.name === m.name) c.end();
+    if (app.ui.talking === m.name) app.ui.talking = null;
+  }
+  render();
+}
+
 function release() {
+  if (stream && app.session) app.session.send({ k: 'voice', on: false });
   holding = false;
   for (const c of calls) { try { c.close(); } catch (e) { /* gone */ } }
   calls.clear();
@@ -120,6 +142,7 @@ document.addEventListener('keyup', (e) => {
 document.addEventListener('visibilitychange', () => document.hidden && holding && release());
 
 app.bus.on('session', (session) => {
+  session.on('voice', onVoice);
   bind(session.link.peer);
   const net = app.net;
   if (net) net.on('peer', bind);

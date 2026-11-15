@@ -12,7 +12,9 @@ Serve the folder with any static server and open it on each phone:
 python3 -m http.server 8080
 ```
 
-Phones only give GPS to HTTPS pages, so for real play host it somewhere with HTTPS (GitHub Pages works as is). `localhost` is fine for desk testing.
+Phones only give GPS to HTTPS pages, so for real play it needs an HTTPS address. The live copy is on Vercel at <https://cityhunter-eight.vercel.app/>, and every push to `main` redeploys it. `localhost` is fine for desk testing.
+
+Players can install it: Android shows an "Install" button on Home, and on iPhone it is Share → Add to Home Screen. Installed, it runs full screen and the app shell still opens on a weak signal (`manifest.webmanifest`, `sw.js`).
 
 ## Theme system
 
@@ -45,6 +47,11 @@ Everything tunable is in `js/config.js`.
 | `ping.proximityAlertM` | 150 | Prey banner when a hunter's last ping is this close |
 | `ping.baseRadiusM` / `growMps` / `maxRadiusM` | 20 / 1.2 / 250 | Prey circle size, growth with ping age, and cap |
 | `ping.lostMaxRadiusM` | 2000 | Cap once a player's GPS grace has run out |
+| `fair.maxSpeedMps` / `jumpMinM` | 12 / 80 | A move faster and farther than this between two fixes is flagged to the host |
+| `fair.holdRadiusM` | 30 | Hunters must stay this close to their start point during the head start |
+| `fair.holdPenaltySec` | 60 | A hunter outside it at release cannot catch for this long (0 = warn only) |
+| `safety.showHelperLocation` | true | Everyone sees where a player who asked for help is |
+| `protocol` | 3 | Bump when messages change; phones on an older cached copy are turned away |
 | `net.heartbeatSec` / `heartbeatTimeoutSec` | 2 / 8 | Heartbeat interval and the silence that counts as a dropped link |
 | `net.spotHoldSec` | 300 | A disconnected player's spot is held this long |
 | `net.hostOfflineHoldSec` | 180 | Match stays paused this long waiting for the host |
@@ -66,11 +73,47 @@ The host's phone runs the authoritative game (`js/host.js` plus the `js/host-*.j
 - **Connection lost** (`js/net.js`, `js/ui/net.js`): clients redial the host in a loop. A same-origin probe request tells "my connection is down" from "the host is unreachable".
 - **Host offline** (`js/host-resilience.js`, `js/resume.js`): the host's peer ID is derived from the lobby code and the game is saved to `localStorage` every 2 s. Reloading the host tab resumes automatically; a fresh tab on the same phone gets a "Resume hosting" card on Home. Clients freeze their clocks while the host is away and end the match with no winner after `hostOfflineHoldSec`. Game time only advances while the host is running, so downtime is never charged to the match.
 
+## Added in 2.1
+
+- **Sound alerts** (`js/sound.js`): short synthesised tones for a ping, a hunter nearby, being tagged, leaving the zone, losing GPS, release, a catch and a help request. iPhones cannot vibrate from a web page, so sound is their only alert. The switch is on Home; on iPhone the ringer switch also mutes it.
+- **Play zone on a map** (`js/ui/zone.js`): the host drags a map under a fixed circle and picks the radius. Guests see the preview in the lobby. Left unset, the zone is centred on the host at start.
+- **Join by QR code**: the lobby shows a QR code of the join link.
+- **Compass heading** (`js/geo.js`): the direction wedge uses the phone's compass, so it works standing still. iPhone asks for motion permission when the map is first opened.
+- **Fair play** (`js/host-fairplay.js`): impossible moves are flagged to the host and listed in the host console. Hunters who leave their start point during the head start are warned, and one who is still out of position at release cannot catch for `fair.holdPenaltySec`.
+- **Safety**: a short reminder opens the first time a phone enters a lobby. The lifebuoy button on the map pauses the match for everyone, sounds an alarm and shows them where that player is; the player or the host resumes.
+
+## Your own connection servers
+
+The game uses the free public PeerJS cloud to let phones find each other. `server/` holds a ready-to-deploy copy of that server and `render.yaml` deploys it on Render; `server/README.md` has the steps, including the relay (TURN) settings for phones on mobile data. Nothing is deployed until you do it.
+
+## Tests
+
+`tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server: lobby, zone picker, QR, pings, all eight abilities, chat, voice, catch PIN, results, out of zone, GPS lost, help, fair play, compass, reconnects, host recovery and the offline app shell.
+
+```bash
+cd tests
+```
+
+```bash
+npm install
+```
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm test
+```
+
+GitHub runs the same suite on every pull request and push to `main` (`.github/workflows/test.yml`). The game itself still has no build step and no dependencies; `tests/` and `server/` are not deployed.
+
 ## Testing at a desk
 
 - `?sim=51.5073,-0.1657` fakes GPS at that point; tap the map to walk.
 - `?ps=localhost:9000` uses a local PeerServer instead of the PeerJS cloud.
 - `window.CH` exposes the app state in the console. `CH.geo.blocked = true` simulates losing GPS.
+- `?nosw` skips the service worker.
 - Open one tab per player. Each tab is a separate player.
 
 ## Limits to know about
@@ -78,13 +121,15 @@ The host's phone runs the authoritative game (`js/host.js` plus the `js/host-*.j
 - iOS and Android suspend a page when the screen locks. The app holds a screen wake lock during a match, but a locked or backgrounded phone stops sending GPS, and a locked host pauses the match for everyone.
 - After a host crash the PeerJS cloud can keep the old ID registered for up to about a minute; the host retries until it frees up.
 - There is no host migration. If the host cannot come back, the match ends with no winner.
-- Hunters are told to hold position during the head start; this is not enforced by GPS.
+- Fair-play flags are hints for the host, not proof: GPS does jump on its own.
+- When you change files, bump the cache name in `sw.js`, and bump `CONFIG.protocol` if messages changed.
 - Voice is live WebRTC audio to teammates only and needs microphone permission.
 
 ## Layout
 
 ```
 index.html            screens and layers (empty containers)
+manifest.webmanifest  install metadata; sw.js keeps the shell available offline
 css/base.css          tokens, themes, shared components
 css/*.css             one file per group of screens
 js/config.js          every tunable value
@@ -93,5 +138,7 @@ js/client.js          a player's view of the match
 js/net.js             PeerJS transport, heartbeats, redial
 js/geo.js, map.js     GPS watcher, Leaflet wrapper
 js/ui/*.js            one module per screen
-vendor/               Leaflet 1.9.4 and PeerJS 1.5.4
+vendor/               Leaflet 1.9.4, PeerJS 1.5.4, qrcode-generator 1.4.4
+server/               optional signalling server (not deployed with the game)
+tests/                multi-browser Playwright tests (dev only)
 ```

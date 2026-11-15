@@ -2,7 +2,8 @@
 // that matches the current match phase.
 
 import { CONFIG } from './config.js';
-import { store, uid, makeCode, buzz, showCode } from './util.js';
+import { store, uid, makeCode, showCode } from './util.js';
+import { cue } from './sound.js';
 import { app } from './state.js';
 import { HostNet, ClientNet, LocalLink } from './net.js';
 import { Host } from './host.js';
@@ -19,6 +20,8 @@ import './ui/results.js';
 import './ui/admin.js';
 import './ui/alerts.js';
 import './ui/net.js';
+import './ui/zone.js';
+import './ui/safety.js';
 import './resume.js';
 import './voice.js';
 import { installPlay } from './host-play.js';
@@ -26,12 +29,13 @@ import { installCatch } from './host-catch.js';
 import { installAdmin } from './host-admin.js';
 import { installSafety } from './host-safety.js';
 import { installResilience } from './host-resilience.js';
+import { installFairplay } from './host-fairplay.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience];
+app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience, installFairplay];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
@@ -90,7 +94,7 @@ function bind(session) {
   session.on('event', (e) => {
     if (e.type === 'toast') toast(e.text, e.tone || '');
     if (e.type === 'release') {
-      buzz([120, 80, 120]);
+      cue('release');
       toast(session.snap.me.role === 'hunter' ? 'Head start over. Go hunt.' : 'Hunters are released. Stay hidden.', 'hunter');
     }
     app.bus.emit('ev:' + e.type, e);
@@ -100,6 +104,7 @@ function bind(session) {
       'in-progress': 'That match has already started',
       full: 'That lobby is full',
       kicked: 'The host removed you from that lobby',
+      version: 'Your app is out of date. Reload the page and try again.',
       bad: 'Could not join that lobby'
     }[reason] || 'Could not join that lobby';
     cleanup();
@@ -213,6 +218,11 @@ async function syncWake() {
 document.addEventListener('visibilitychange', syncWake);
 setInterval(syncWake, 5000);
 app.wakeHeld = () => !!wakeLock;
+
+// ---- installable app: register the service worker (see sw.js) ----
+if ('serviceWorker' in navigator && !params.has('nosw') && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 
 window.CH = app;   // console access for debugging and tests
 route();

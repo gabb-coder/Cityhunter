@@ -57,7 +57,7 @@ setInterval(tick, 250);
 
 // ---- screens and layers ----
 const SCREENS = ['home', 'lobby', 'reveal', 'game', 'results'];
-const LAYERS = ['shop', 'chat', 'catch', 'tagged', 'converted', 'admin'];
+const LAYERS = ['shop', 'chat', 'catch', 'tagged', 'converted', 'admin', 'zone'];
 let current = null;
 
 export function showScreen(name) {

@@ -19,7 +19,7 @@ const N = CONFIG.net;
 
 export function loadHostSave() {
   const s = store.get(HOST_SAVE_KEY);
-  if (!s || !s.G || s.G.v !== 2 || Date.now() - s.at > 12 * 3600 * 1000) return null;
+  if (!s || !s.G || s.G.v !== 3 || Date.now() - s.at > 12 * 3600 * 1000) return null;
   const now = Date.now();
   for (const p of Object.values(s.G.players)) {
     p.cid = null;

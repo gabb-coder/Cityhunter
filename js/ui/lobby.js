@@ -5,6 +5,8 @@ import { icon } from '../icons.js';
 import { CONFIG, MODES, RULE_OPTIONS, RULE_LABELS } from '../config.js';
 import { app, snap } from '../state.js';
 import { act, onRender, screen, toast, openModal, closeModal, confirmModal, roleName } from './core.js';
+import { zoneCard } from './zone.js';
+import { joinUrl } from './safety.js';
 
 const root = $('#s-lobby');
 const fmtRule = (key, v) => (key === 'zoneRadiusM' ? metres(v) : span(v));
@@ -46,7 +48,7 @@ function renderLobby() {
   if (host) {
     if (players.length < CONFIG.lobby.minPlayers) { canStart = false; footNote = 'Waiting for players to join'; }
     else if (!hunters || !prey) { canStart = false; footNote = 'You need at least one hunter and one prey'; }
-    else if (!fix) { canStart = false; footNote = app.geo && app.geo.status === 'denied' ? 'Allow location access to set the play zone' : 'Waiting for your GPS fix to set the play zone'; }
+    else if (!fix && !s.zoneCenter) { canStart = false; footNote = app.geo && app.geo.status === 'denied' ? 'Allow location access to set the play zone' : 'Set the play zone on the map, or wait for your GPS fix'; }
   }
 
   const rules = Object.keys(RULE_LABELS).map((key) =>
@@ -83,17 +85,22 @@ function renderLobby() {
         '<div class="code-main"><span class="label">Lobby code</span>' +
           '<span class="mono code-big lime-ink">' + esc(showCode(s.code)) + '</span>' +
           '<span class="small muted">Friends enter this on the home screen</span></div>' +
-        '<button type="button" class="icon-btn share-btn" data-act="share" aria-label="Share lobby code">' + icon('share', 24) + '</button>' +
+        '<div class="code-btns">' +
+          '<button type="button" class="icon-btn share-btn" data-act="qr" aria-label="Show a QR code to join">' + icon('qr', 24) + '</button>' +
+          '<button type="button" class="icon-btn share-btn" data-act="share" aria-label="Share lobby code">' + icon('share', 24) + '</button>' +
+        '</div>' +
       '</section>' +
       '<section class="block"><h2 class="label">Mode</h2><div class="mode-grid">' +
         Object.values(MODES).map((m) => modeCard(m, m.id === s.mode, host)).join('') +
       '</div></section>' +
       '<section class="block"><h2 class="label">Rules</h2><div class="card rows">' + rules + stepper + '</div>' +
-        '<p class="small muted">The play zone is centred on the host when the hunt starts.</p></section>' +
+        '</section>' +
+      zoneCard(s, host) +
       '<section class="block"><h2 class="label">Players · ' + players.length + '</h2>' +
         '<ul class="players">' + players.map((p) => playerRow(p, host)).join('') + '</ul>' +
         '<p class="small muted">' + (host ? 'Tap a role chip to choose who starts as a hunter.' : 'The host picks the starting hunters.') + '</p>' +
       '</section>' +
+      '<button type="button" class="btn btn-quiet safety-link" data-act="safety">' + icon('shieldPlain', 18) + 'Safety rules</button>' +
     '</div>' +
     '<footer class="foot-bar pad-b">' +
       '<span class="small muted foot-note">' + esc(footNote) + '</span>' + footBtn +
@@ -121,13 +128,13 @@ act('rule-set', (el) => {
 
 act('start', () => {
   const fix = app.geo && app.geo.fix;
-  if (!fix) return toast('Waiting for your GPS fix');
-  app.session.send({ k: 'start', center: { lat: fix.lat, lng: fix.lng } });
+  if (!fix && !snap().zoneCenter) return toast('Set the play zone on the map, or wait for your GPS fix');
+  app.session.send({ k: 'start', center: fix ? { lat: fix.lat, lng: fix.lng } : null });
 });
 
 act('share', async () => {
   const s = snap();
-  const url = location.origin + location.pathname + '?join=' + s.code;
+  const url = joinUrl(s.code);
   const text = 'Join my City Hunter lobby: ' + showCode(s.code);
   try {
     if (navigator.share) await navigator.share({ title: 'City Hunter', text, url });

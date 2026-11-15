@@ -2,6 +2,7 @@
 // (orange border, GET BACK IN countdown, direction to the nearest edge).
 
 import { $, esc, setHTML, setText, clock, dist, bearing, compass, metres } from '../util.js';
+import { cue } from '../sound.js';
 import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app, snap } from '../state.js';
@@ -11,7 +12,7 @@ import { mapItemHooks } from './game.js';
 
 const GC = CONFIG.gps;
 const ZC = CONFIG.zone;
-const st = { gpsMin: false, gpsTold: false, outLocalT: null, sheetWasMin: null };
+const st = { gpsMin: false, gpsTold: false, gpsCued: false, outLocalT: null, sheetWasMin: null, revealCued: false };
 
 const playing = () => screen() === 'game' && app.session && app.session.inMatch;
 
@@ -28,7 +29,12 @@ function renderGps() {
     sheet.hidden = true;
     st.gpsMin = false;
     st.gpsTold = false;
+    st.gpsCued = false;
     return;
+  }
+  if (!st.gpsCued) {
+    st.gpsCued = true;
+    cue('gps');
   }
   sheet.hidden = false;
   const denied = app.geo.status === 'denied' || app.geo.status === 'unsupported';
@@ -144,12 +150,20 @@ function renderZone() {
     app.ui.sheetMin = true;
     render();
   }
-  if (st.outLocalT == null) st.outLocalT = app.session.T();
+  if (st.outLocalT == null) {
+    st.outLocalT = app.session.T();
+    st.revealCued = false;
+    cue('zone');
+  }
   box.hidden = false;
   border.hidden = false;
 
   const prey = s.me.role === 'prey';
   const revealed = prey && s.me.out && s.me.out.revealed;
+  if (revealed && !st.revealCued) {
+    st.revealCued = true;
+    cue('zone');
+  }
   const top = prey
     ? '<span class="mono oz-kicker">' + (revealed ? 'YOUR LIVE POSITION IS REVEALED' : 'YOU LEFT THE PLAY ZONE') + '</span>' +
       '<div class="oz-row"><h1 class="head">GET BACK IN</h1><span class="mono oz-clock" role="timer" id="oz-clock">' + (revealed ? 'LIVE' : '') + '</span></div>' +

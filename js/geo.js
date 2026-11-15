@@ -27,6 +27,46 @@ export class Geo extends Emitter {
     this.blocked = false;     // test hook: pretend the signal is gone
     this.simulated = false;
     this.lastMove = null;
+    this.compass = null;      // degrees from north, from the phone's compass
+    this.compassAt = 0;
+    this.compassOn = false;
+  }
+
+  // Compass heading, so the direction wedge works while standing still.
+  // iOS only grants this from a tap, so call it from a click handler.
+  async enableCompass() {
+    if (this.compassOn) return;
+    const D = window.DeviceOrientationEvent;
+    if (!D) return;
+    this.compassOn = true;
+    // Listen first: Android delivers readings without asking. iOS only
+    // starts delivering them once the permission below is granted.
+    const onOrient = (e) => this._onOrient(e);
+    window.addEventListener('deviceorientationabsolute', onOrient, true);
+    window.addEventListener('deviceorientation', onOrient, true);
+    try {
+      if (typeof D.requestPermission === 'function') await D.requestPermission();
+    } catch (e) { /* refused or not from a tap: the wedge falls back to direction of travel */ }
+  }
+
+  _onOrient(e) {
+    let hdg = null;
+    if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) hdg = e.webkitCompassHeading;   // iOS
+    else if (e.absolute && e.alpha != null) hdg = 360 - e.alpha;                                                    // Android
+    if (hdg == null || !isFinite(hdg)) return;
+    const turn = (screen.orientation && screen.orientation.angle) || 0;
+    hdg = (hdg + turn + 360) % 360;
+    const moved = this.compass == null || Math.abs(((hdg - this.compass + 540) % 360) - 180) >= 4;
+    this.compassAt = Date.now();
+    if (!moved) return;
+    this.compass = hdg;
+    this.emit('heading', hdg);
+  }
+
+  // Best heading right now: a live compass reading, else direction of travel.
+  heading() {
+    if (this.compass != null && Date.now() - this.compassAt < 3000) return this.compass;
+    return this.fix ? this.fix.hdg : null;
   }
 
   start() {

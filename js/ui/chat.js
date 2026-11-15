@@ -5,6 +5,7 @@ import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app, snap } from '../state.js';
 import { act, onRender, render, setLayer } from './core.js';
+import { cue } from '../sound.js';
 
 const root = $('#s-chat');
 let built = false;
@@ -76,5 +77,8 @@ app.bus.on('layer', (name, prev) => {
   if (prev === 'chat' && app.session) app.session.chatOpen = null;
   if (name === 'chat') setTimeout(() => { const b = $('#chat-list'); if (b) b.scrollTop = b.scrollHeight; }, 0);
 });
-app.bus.on('session', (session) => session.on('chat', render));
+app.bus.on('session', (session) => session.on('chat', (m) => {
+  if (m && m.from !== session.id) cue('msg');
+  render();
+}));
 onRender(renderChat);

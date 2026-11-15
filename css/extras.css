@@ -1,0 +1,71 @@
+/* v2.1: zone picker, join QR, safety, help, install */
+
+/* ---------- lobby: code card buttons ---------- */
+.code-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.code-btns .share-btn { width: 52px; height: 56px; }
+
+/* ---------- static map preview ---------- */
+.smap { position: relative; overflow: hidden; background: var(--ground); border-radius: 15px 15px 0 0; }
+.smap.empty { height: 96px; display: flex; align-items: center; justify-content: center; font-size: 14px; padding: 0 16px; text-align: center; }
+.smap-tiles { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.smap-tiles img { position: absolute; display: block; max-width: none; }
+.smap-zone {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border-radius: 50%; border: 2.5px dashed var(--zone-edge);
+  box-shadow: 0 0 0 2000px rgba(10, 12, 11, var(--zone-mask));
+}
+.smap-dot { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--zone-edge); border: 2px solid var(--dot-ring); }
+.smap-attr { position: absolute; left: 0; bottom: 0; padding: 2px 6px; font-size: 10px; background: var(--hud); color: var(--muted); border-radius: 0 8px 0 0; }
+
+.zone-card { overflow: hidden; }
+.zone-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 12px 12px 16px; border-top: 1px solid var(--bd-soft); }
+.zone-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.zone-text strong { font-family: var(--ff-mono); font-size: 15px; }
+.zone-foot .btn { gap: 6px; white-space: nowrap; flex: 1 0 auto; }
+
+/* ---------- zone picker ---------- */
+.zone-map-wrap { position: relative; flex: 1; min-height: 0; background: var(--ground); }
+#zone-map { position: absolute; inset: 0; }
+.zone-cross {
+  position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; z-index: 500;
+  border-radius: 50%; background: var(--zone-edge); border: 3px solid var(--dot-ring); pointer-events: none;
+}
+.zone-hint {
+  position: absolute; left: 12px; right: 12px; top: 12px; z-index: 500; pointer-events: none;
+  padding: 8px 12px; border-radius: 12px; text-align: center;
+  background: var(--hud); border: var(--bd-strong-w) solid var(--bd-strong);
+  font-size: 14px; font-weight: var(--fw-semi);
+}
+.zone-radii { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(84px, 1fr); gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.zone-radii .opt { min-height: 48px; font-size: 15px; }
+.zone-done { font-size: 18px; letter-spacing: 0.04em; }
+#s-zone .leaflet-bottom { bottom: 0; }
+
+/* ---------- join QR ---------- */
+.qr-box { align-self: center; width: min(260px, 70%); padding: 16px; border-radius: 16px; background: #FFFFFF; border: 2px solid #0A0C0B; }
+.qr-box svg { display: block; width: 100%; height: auto; }
+.qr-code { text-align: center; font-size: 30px; letter-spacing: 0.08em; color: var(--lime-ink); }
+.qr-note { text-align: center; }
+
+/* ---------- safety ---------- */
+.safety-list { display: flex; flex-direction: column; gap: 12px; counter-reset: s; }
+.safety-list li { display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; row-gap: 2px; font-size: 15px; line-height: 1.4; }
+.safety-list li::before {
+  counter-increment: s; content: counter(s); grid-row: 1 / span 2;
+  width: 28px; height: 28px; border-radius: 8px; background: var(--lime); color: var(--on-lime);
+  display: flex; align-items: center; justify-content: center; font-family: var(--ff-mono); font-weight: 700; font-size: 14px;
+}
+.safety-list strong { font-weight: var(--fw-bold); }
+.safety-list span { grid-column: 2; color: var(--soft); }
+.safety-link { min-height: 48px; gap: 8px; }
+
+.help-btn { color: var(--hunter-ink); border-color: var(--hunter-ink); }
+.help-banner { align-items: center; }
+.help-end { background: var(--ink); color: #FFFFFF; border-color: var(--ink); flex-shrink: 0; }
+
+/* ---------- home: install + sound ---------- */
+.home-theme { display: flex; gap: 8px; }
+.icon-btn[data-act='sound'][aria-pressed='false'] { color: var(--muted); }
+.install-btn { width: 100%; gap: 8px; margin-bottom: 8px; border-color: var(--lime-ink); color: var(--lime-ink); background: transparent; }
+.install-hint { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.install-hint svg { margin-top: 2px; }

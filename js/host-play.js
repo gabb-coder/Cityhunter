@@ -161,6 +161,14 @@ export function installPlay(host) {
     for (const q of host.all()) if (key === 'all' || q.role === key) host.to(q, entry);
   });
 
+  // Push-to-talk start/stop, relayed to the talker's own side. The audio
+  // itself goes phone to phone; this just drives the "is talking" banner
+  // instantly instead of waiting for a media connection to time out.
+  host.on('voice', (p, m) => {
+    if (!host.inMatch) return;
+    for (const q of host.active()) if (q !== p && q.role === p.role) host.to(q, { k: 'voice', from: p.id, name: p.name, on: !!m.on });
+  });
+
   const sendHistory = (p) => {
     const g = G();
     host.to(p, { k: 'chathist', ch: 'all', list: g.chat.all });

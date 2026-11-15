@@ -5,6 +5,7 @@ import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app } from '../state.js';
 import { act, onRender, themeButton, toast, screen } from './core.js';
+import { soundButton } from './safety.js';
 
 const NAME_KEY = 'ch2.name';
 const root = $('#s-home');
@@ -18,7 +19,7 @@ function build() {
         '<circle cx="260" cy="260" r="80"/><circle cx="260" cy="260" r="150"/><circle cx="260" cy="260" r="220"/><path d="M260 20V500M20 260H500"/></svg>' +
       '<div class="home-top">' +
         '<div class="home-build"><span class="lime-ink">' + icon('logo', 28, 2.5) + '</span>' +
-          '<span class="mono">BUILD ' + CONFIG.version + ' · GPS MANHUNT</span>' +
+          '<span class="mono">BUILD ' + CONFIG.version + '</span>' +
           '<span id="home-theme" class="home-theme"></span></div>' +
         '<h1 class="head home-title">CITY<br>HUNTER</h1>' +
         '<p class="home-pitch">Real streets, real chase. Hunters track the pings, prey run for cover, and every catch flips a player to the other side.</p>' +
@@ -29,6 +30,7 @@ function build() {
       '<div class="grow"></div>' +
       '<form class="home-form" id="home-form" novalidate>' +
         '<div id="home-resume"></div>' +
+        '<div id="home-install"></div>' +
         '<label class="label" for="callsign">Your callsign</label>' +
         '<input id="callsign" class="field" maxlength="' + CONFIG.lobby.nameMaxLength + '" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done">' +
         '<button type="button" class="btn btn-xl btn-lime" data-act="host">HOST A HUNT' + icon('arrowRight', 22, 2.5) + '</button>' +
@@ -96,7 +98,8 @@ act('resume-forget', () => {
 
 function renderHome() {
   if (screen() !== 'home') return;
-  $('#home-theme').innerHTML = themeButton('sm');
+  $('#home-theme').innerHTML = soundButton('sm') + themeButton('sm');
+  renderInstall();
   const r = app.go.resumable ? app.go.resumable() : null;
   $('#home-resume').innerHTML = r
     ? '<div class="card card-strong resume">' +
@@ -107,6 +110,42 @@ function renderHome() {
       '</div>'
     : '';
 }
+
+// ---- install as an app ----
+// Chrome / Android offer a real install prompt. iPhone Safari has no prompt,
+// so it gets a one-line hint instead. Nothing shows once it is installed.
+let installEvent = null;
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  renderHome();
+});
+window.addEventListener('appinstalled', () => {
+  installEvent = null;
+  renderHome();
+});
+
+function renderInstall() {
+  const box = $('#home-install');
+  if (!box) return;
+  if (standalone()) box.innerHTML = '';
+  else if (installEvent) {
+    box.innerHTML = '<button type="button" class="btn btn-sm install-btn" data-act="install">' + icon('install', 18) + 'Install City Hunter on this phone</button>';
+  } else if (isIos()) {
+    box.innerHTML = '<p class="small muted install-hint">' + icon('install', 16) + '<span>For full screen: tap Share, then \u201CAdd to Home Screen\u201D.</span></p>';
+  } else box.innerHTML = '';
+}
+
+act('install', async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  await installEvent.userChoice.catch(() => {});
+  installEvent = null;
+  renderHome();
+});
 
 build();
 onRender(renderHome);

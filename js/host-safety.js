@@ -67,6 +67,33 @@ export function installSafety(host) {
     }
   });
 
+  // ---- "Need help": pause for everyone and show where the player is ----
+  host.on('help', (p, m) => {
+    const g = G();
+    if (!host.inMatch) return;
+    if (m.on) {
+      if (g.help) return;
+      g.help = { by: p.id, T: g.T };
+      host.pause('help');
+      host.evAll({ type: 'help', name: p.name }, (q) => q !== p);
+    } else if (g.help && (g.help.by === p.id || host.isHost(p))) {
+      g.help = null;
+      host.resume('help');
+      host.evAll({ type: 'toast', text: 'Match resumed', tone: 'lime' });
+    }
+  });
+
+  host.hooks.view.push((p, v) => {
+    const g = G();
+    const h = g.help && g.players[g.help.by];
+    if (!host.inMatch || !h) return;
+    v.help = { id: h.id, name: h.name, you: h === p };
+    if (CONFIG.safety.showHelperLocation && h.pos) {
+      v.help.lat = h.pos.lat;
+      v.help.lng = h.pos.lng;
+    }
+  });
+
   host.hooks.view.push((p, v) => {
     if (!host.inMatch) return;
     v.me.out = { sinceT: p.out.sinceT, revealed: p.out.revealed };

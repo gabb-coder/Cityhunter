@@ -17,6 +17,7 @@ function statusLine(p, inMatch) {
   if (p.gpsAge > 12) return ['No GPS for ' + p.gpsAge + ' s', 'hunter-ink'];
   if (p.revealed) return ['Out of zone · revealed to hunters', 'hunter-ink'];
   if (p.outZone) return ['Out of zone · countdown running', 'hunter-ink'];
+  if (p.jumps) return ['GPS ±' + p.acc + ' m · ' + p.jumps + ' impossible move' + (p.jumps === 1 ? '' : 's') + ' flagged', 'hunter-ink'];
   return ['GPS ±' + p.acc + ' m', p.acc > 30 ? 'hunter-ink' : 'muted'];
 }
 
