@@ -51,7 +51,13 @@ Everything tunable is in `js/config.js`.
 | `fair.holdRadiusM` | 30 | Hunters must stay this close to their start point during the head start |
 | `fair.holdPenaltySec` | 60 | A hunter outside it at release cannot catch for this long (0 = warn only) |
 | `safety.showHelperLocation` | true | Everyone sees where a player who asked for help is |
-| `protocol` | 3 | Bump when messages change; phones on an older cached copy are turned away |
+| `late.joinAsHunter` / `allowSpectators` | true / true | A player arriving mid-match joins the hunters; "Watch a match" is allowed |
+| `marks.lifeSec` | 180 | How long a team map pin stays |
+| `saver.dimAfterSec` / `mapRefreshMs` / `posSendSec` | 20 / 1000 / 4 | Battery saver: when the screen goes dark, and how often the map and position update |
+| `replay.minMoveM` / `maxPoints` / `seconds` | 8 / 500 / 9 | Route recording detail and the length of the animated replay |
+| `zone.shrinkStartFrac` / `shrinkEndFrac` | 0.2 / 0.85 | When a shrinking zone starts closing and when it reaches its final size |
+| `map.offline.zooms` / `maxTiles` / `keepTiles` | 15–17 / 160 / 800 | Map tiles saved for the play zone at match start |
+| `protocol` | 4 | Bump when messages change; phones on an older cached copy are turned away |
 | `net.heartbeatSec` / `heartbeatTimeoutSec` | 2 / 8 | Heartbeat interval and the silence that counts as a dropped link |
 | `net.spotHoldSec` | 300 | A disconnected player's spot is held this long |
 | `net.hostOfflineHoldSec` | 180 | Match stays paused this long waiting for the host |
@@ -82,13 +88,31 @@ The host's phone runs the authoritative game (`js/host.js` plus the `js/host-*.j
 - **Fair play** (`js/host-fairplay.js`): impossible moves are flagged to the host and listed in the host console. Hunters who leave their start point during the head start are warned, and one who is still out of position at release cannot catch for `fair.holdPenaltySec`.
 - **Safety**: a short reminder opens the first time a phone enters a lobby. The lifebuoy button on the map pauses the match for everyone, sounds an alarm and shows them where that player is; the player or the host resumes.
 
+## Added in 2.2
+
+- **Problem report** (`js/diag.js`): "Report a problem" on Home, in the lobby, the host console, the results screen and the connection overlay. It packages this phone's recent connection, GPS and error log as text to share. It contains no positions, PINs or chat.
+- **Offline map for the zone** (`js/tiles.js`, `sw.js`): when a match starts, the service worker saves the tiles covering the play zone; tiles you look at are kept too. Limits are in `CONFIG.map.offline`. Keep them small on free tile servers, which do not allow bulk downloads.
+- **Battery saver**: the battery button on the map. The map and position update less often, and the screen goes to a dark clock after `saver.dimAfterSec` without a touch. Any alert wakes it.
+- **Modes differ**: Skirmish has a shrinking zone by default, Dead Reckoning a fixed one. "Zone shrinks to" is a lobby rule, so the host can change either.
+- **Shrinking zone**: closes in steadily between two points of the match. The map shows the final zone and a banner while it shrinks.
+- **Everyone's routes in the replay** (`js/ui/replay.js`): the host records each player's route and sends them once at the end. The replay animates all of them, with yours drawn thicker.
+- **Late join and spectators**: someone joining mid-match becomes a hunter. "Watch a match" on Home joins as a spectator, who sees everyone live, is not counted, and can only use the everyone chat. Spectators are never asked for their location.
+- **Team map pins**: the pin button, then tap the map. Only your side sees it. Tracker now asks which prey to follow.
+- **Practice round** (`js/practice.js`): a solo match against bots with no network, with one line of coaching at a time. Your position is simulated; tap the map to walk.
+- **Lobby chat**, and a **shareable result image** from the results screen.
+- **Chinese (Simplified)**: the globe button on Home switches language; a Chinese-language phone starts in Chinese.
+
+### Adding a language
+
+The UI is written in English and translated as it is drawn (`js/i18n.js`), so no screen code changes. Copy `js/lang/zh.js`, translate the right-hand sides, and register it in `LANGS` in `js/i18n.js`. Opening the game with `?harvest` and reading `CH.i18n.harvest` in the console lists every string seen so far. `tests/zh.spec.js` plays a whole match and fails if any English is left on screen. Mark anything that must never be translated (names, codes, chat) with `translate="no"`.
+
 ## Your own connection servers
 
 The game uses the free public PeerJS cloud to let phones find each other. `server/` holds a ready-to-deploy copy of that server and `render.yaml` deploys it on Render; `server/README.md` has the steps, including the relay (TURN) settings for phones on mobile data. Nothing is deployed until you do it.
 
 ## Tests
 
-`tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server: lobby, zone picker, QR, pings, all eight abilities, chat, voice, catch PIN, results, out of zone, GPS lost, help, fair play, compass, reconnects, host recovery and the offline app shell.
+`tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server. It covers every feature above, including spectators, practice rounds, saved map tiles and a full match in Chinese.
 
 ```bash
 cd tests
@@ -114,6 +138,8 @@ GitHub runs the same suite on every pull request and push to `main` (`.github/wo
 - `?ps=localhost:9000` uses a local PeerServer instead of the PeerJS cloud.
 - `window.CH` exposes the app state in the console. `CH.geo.blocked = true` simulates losing GPS.
 - `?nosw` skips the service worker.
+- `?harvest` records every string shown (for translators).
+- Practice round on Home needs no second phone.
 - Open one tab per player. Each tab is a separate player.
 
 ## Limits to know about
@@ -138,6 +164,7 @@ js/client.js          a player's view of the match
 js/net.js             PeerJS transport, heartbeats, redial
 js/geo.js, map.js     GPS watcher, Leaflet wrapper
 js/ui/*.js            one module per screen
+js/i18n.js, js/lang/  language switch and dictionaries
 vendor/               Leaflet 1.9.4, PeerJS 1.5.4, qrcode-generator 1.4.4
 server/               optional signalling server (not deployed with the game)
 tests/                multi-browser Playwright tests (dev only)
