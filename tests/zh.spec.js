@@ -74,7 +74,22 @@ test('Chinese: Home, lobby, zone picker, safety and QR are fully translated', as
   await A.click('[data-act=zone-edit]');
   await A.waitForSelector('#s-zone:not([hidden]) #zone-map.leaflet-container');
   expect(await leftovers(A, NAMES)).toEqual([]);
-  await A.click('#s-zone [data-act=layer-close]');
+  // The other two tools: draw a shape, mark no-go areas.
+  const tap = async (dx, dy) => { const b = await A.locator('#zone-map').boundingBox(); await A.mouse.click(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy); };
+  await A.click('[data-act=zone-tool][data-tool=draw]');
+  expect(await leftovers(A, NAMES), 'zone: draw, empty').toEqual([]);
+  await tap(-60, -80); await tap(70, -70); await tap(60, 80); await tap(-70, 60);
+  expect(await leftovers(A, NAMES), 'zone: draw, four corners').toEqual([]);
+  await A.click('[data-act=zone-tool][data-tool=nogo]');
+  expect(await leftovers(A, NAMES), 'zone: no-go, empty').toEqual([]);
+  await tap(-10, -10); await tap(10, -10);
+  expect(await leftovers(A, NAMES), 'zone: no-go, two corners').toEqual([]);
+  await tap(10, 10);
+  expect(await leftovers(A, NAMES), 'zone: no-go, one area').toEqual([]);
+  await A.click('[data-act=zone-done]');
+  await expect(A.locator('.zone-text')).toContainText('自定义形状');
+  expect(await leftovers(A, NAMES), 'lobby with a drawn zone').toEqual([]);
+  await A.click('[data-act=zone-reset]');
   await A.click('.topbar [data-act=admin]');
   expect(await leftovers(A, NAMES)).toEqual([]);
   await A.click('#s-admin [data-act=report]');
@@ -166,6 +181,10 @@ test('Chinese: a whole match (map, shop, chat, catch, results) has no English le
   await C.click('[data-act=catch-open]');
   await sleep(800);
   await check(C, 'confirm catch');
+  await C.click('[data-act=scan-open]');
+  await sleep(1200);
+  await check(C, 'scanner');
+  await C.click('[data-act=scan-close]');
   await B.waitForSelector('#s-tagged:not([hidden]) .tagged-pin');
   await check(B, 'tagged');
   await typePin(C, (await snap(B)).me.pin === '0000' ? '1111' : '0000');
