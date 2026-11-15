@@ -37,16 +37,19 @@ import { installSafety } from './host-safety.js';
 import { installResilience } from './host-resilience.js';
 import { installFairplay } from './host-fairplay.js';
 import { installAwards } from './host-awards.js';
+import { installHandover } from './host-handover.js';
+import { HOST_SAVE_KEY } from './host-resilience.js';
 import './update.js';
 import './ui/info.js';
 import './ui/history.js';
 import './ui/scan.js';
+import './report-send.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience, installFairplay, installAwards];
+app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience, installFairplay, installAwards, installHandover];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);
@@ -54,6 +57,21 @@ if (params.get('ps')) {
   // ?ps=localhost:9000 -> use a self-hosted PeerServer
   const [h, port] = params.get('ps').split(':');
   CONFIG.net.peerServer = { host: h, port: Number(port) || 9000, path: '/', secure: location.protocol === 'https:' && h !== 'localhost' };
+}
+
+if (params.get('relay')) {
+  // ?relay=127.0.0.1:9100 -> use another relay server; ?relay=off -> no relay; ?relay=only -> skip direct links
+  const v = params.get('relay');
+  if (v === 'off') CONFIG.relay.enabled = false;
+  else if (v === 'only') CONFIG.relay.forceRelay = true;
+  else CONFIG.relay.url = (location.protocol === 'https:' && !v.startsWith('127.') && !v.startsWith('localhost') ? 'wss://' : 'ws://') + v + '/realtime/v1/websocket';
+}
+if (params.has('relayonly')) CONFIG.relay.forceRelay = true;
+if (params.get('reports')) {
+  // ?reports=127.0.0.1:8080/__reports -> send problem reports somewhere else; ?reports=off -> never
+  const v = params.get('reports');
+  CONFIG.reports.enabled = v !== 'off';
+  if (v !== 'off' && v !== 'on') CONFIG.reports.url = 'http://' + v;
 }
 
 if (params.get('sim')) {
@@ -132,6 +150,16 @@ function bind(session) {
     }
     app.bus.emit('ev:' + e.type, e);
   });
+  // Say so once when this phone ends up on the relay.
+  let toldRelay = false;
+  session.on('link', (st) => {
+    if (st.status === 'online' && st.via === 'relay' && !toldRelay) {
+      toldRelay = true;
+      toast('Connected through the relay: a little slower, and no voice chat', '', 6000);
+      app.bus.emit('relay-used');
+    }
+    if (st.via !== 'relay' && st.status === 'online') toldRelay = false;
+  });
   session.on('reject', (reason) => {
     const why = {
       'in-progress': 'That match has already started',
@@ -194,10 +222,62 @@ async function hostGame(name, saved = null) {
       }
     }
   }
+  net.on('holder', demote);
   startLocal({ code, net, saved, name });
   if (saved) app.ui.mapOpen = saved.phase !== 'lobby';
   store.set(SESSION_KEY, { code, host: true, name }, sessionStorage);
   app.bus.emit('joined', { code, host: true, name });
+}
+
+// ---- host handover (js/host-handover.js) ----
+// This phone is the deputy and the host has been gone too long: carry the
+// match on from the last backup, under the same lobby code.
+function takeOver() {
+  const sess = app.session;
+  if (!sess || sess.isHost || !sess.backup || !sess.id) return false;
+  const G = sess.backup.G;
+  const name = sess.name;
+  if (!G.players[sess.id]) return false;
+  const me = sess.id;
+  cleanup({ keepOffer: true });
+  const now = Date.now();
+  G.hostPid = me;
+  G.epoch = (G.epoch || 0) + 1;
+  G.deputy = null;
+  G.takeover = { by: name, at: now };
+  // The backup can be a few seconds old: skip ahead in the event and chat
+  // numbering so nothing new is mistaken for something already seen.
+  G.evN = (G.evN || 0) + 1000;
+  G.chatN = (G.chatN || 0) + 1000;
+  if (G.pauseReason === 'isolated') {
+    G.paused = false;
+    G.pauseReason = null;
+  }
+  for (const p of Object.values(G.players)) {
+    p.cid = null;
+    p.conn = false;
+    p.peer = null;
+    p.lastHeard = now;
+    p.offMs = 0;
+  }
+  hostGame(name, G);
+  toast('The host is gone. This phone is now hosting the match.', 'lime', 7000);
+  return true;
+}
+
+// Someone else holds our lobby code and answers as host: stop hosting and
+// go back in as a player.
+function demote(holder) {
+  const host = app.host;
+  const sess = app.session;
+  if (!host || !sess || app.practice) return;
+  if (holder.code && holder.code !== host.G.code) return;
+  const name = sess.name;
+  const code = host.G.code;
+  store.del(HOST_SAVE_KEY);
+  cleanup();
+  toast((holder.host ? holder.host + ' took over as host' : 'Another player took over as host') + '. You are back in as a player.', '', 7000);
+  joinGame(name, code, true);
 }
 
 // The host game plus this phone's own player, wired together in-process.
@@ -262,7 +342,7 @@ setInterval(() => {
   toast('Could not get back into ' + showCode(j.code) + '. The host may have gone.', 'hunter', 6000);
 }, 1000);
 
-Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup, startLocal, cancelJoin });
+Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup, startLocal, cancelJoin, takeOver });
 
 // ---- keep the screen awake during a match ----
 let wakeLock = null;

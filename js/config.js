@@ -9,8 +9,8 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.4.0',
-  protocol: 6,             // bump when host and client messages change shape
+  version: '2.5.0',
+  protocol: 7,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
   catch: {
@@ -71,8 +71,40 @@ export const CONFIG = {
     reconnectBackoffSec: [1, 2, 3, 5, 8],
     spotHoldSec: 300,        // a disconnected player's spot is held this long
     hostOfflineHoldSec: 180, // match stays paused this long without the host
+    handover: true,          // a deputy player takes over as host if the host stays away
+    handoverAfterSec: 45,    // ...after this long
+    backupSec: 5,            // how often the host sends the deputy a backup of the match
     hostSaveSec: 2,          // host writes its recovery snapshot this often
     lobbyDropSec: 45         // offline lobby players are removed after this
+  },
+
+  // Relay: used when a phone cannot open a direct link to the host (some
+  // mobile networks). Messages are end-to-end encrypted; see js/relay.js.
+  // The key below is a publishable key: it is meant to be public.
+  relay: {
+    enabled: true,
+    url: 'wss://rdrdbtqqdzppixfuwoxw.supabase.co/realtime/v1/websocket',
+    key: 'sb_publishable_nMPjEm7g5AxpxCGr8RC-Bg_I1tOvzeV',
+    afterFailedDials: 1,     // direct attempts that must fail before the relay is tried
+    answerTimeoutSec: 8,     // how long to wait for the host to answer a knock
+    knockEverySec: 2,
+    heartbeatSec: 25,        // keeps the relay socket open
+    maxLinks: 16,            // relayed players one host will serve
+    snapshotSec: 2,          // routine snapshots to a relayed player (direct links get one a second)
+    posSendSec: 4,           // a relayed player reports position this often
+    forceRelay: false        // testing: skip direct links altogether
+  },
+
+  // Problem reports sent to the people who run the game (js/report-send.js).
+  // The table is insert-only: this public key can add a row and read nothing.
+  // `enabled` stays false until the "reports" table exists in the project.
+  reports: {
+    enabled: false,
+    url: 'https://rdrdbtqqdzppixfuwoxw.supabase.co/rest/v1/reports',
+    key: 'sb_publishable_nMPjEm7g5AxpxCGr8RC-Bg_I1tOvzeV',
+    maxPerDay: 5,            // per phone
+    maxChars: 19000,
+    netLostSec: 20           // a disconnection this long is worth a report
   },
 
   // Fair play. Checked by the host from each phone's reported positions.
