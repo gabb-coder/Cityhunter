@@ -1,6 +1,6 @@
 // Text chat (team channel + everyone) with push-to-talk next to the input.
 
-import { $, esc, setHTML, clock } from '../util.js';
+import { $, esc, setHTML, setText, clock } from '../util.js';
 import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app, snap } from '../state.js';
@@ -42,7 +42,8 @@ function renderChat() {
   if (app.ui.layer !== 'chat' || !s) return;
   if (!built) build();
   const sess = app.session;
-  const inMatch = sess.inMatch;
+  // Team channels exist only during a match, and not for spectators.
+  const inMatch = sess.inMatch && s.me.role !== 'spectator';
   const tab = inMatch ? app.ui.chatTab : 'all';
   const role = s.me.role;
   const teamName = role === 'hunter' ? 'Hunter chat' : 'Prey chat';
@@ -55,13 +56,14 @@ function renderChat() {
       '<button type="button" class="tab all" data-act="chat-tab" data-tab="all" aria-pressed="' + (tab === 'all') + '">Everyone' + badge(sess.unread.all) + '</button>'
     : '');
   $('#chat-tabs').hidden = !inMatch;
+  setText($('#chat-title'), sess.inMatch ? 'CHAT' : 'LOBBY CHAT');
 
   const list = sess.chat[tab];
   const html = list.length
     ? list.map((m) => '<li class="msg' + (m.from === sess.id ? ' mine' : '') + '">' +
-        '<span class="msg-meta"><span class="mono ' + (m.role === 'hunter' ? 'hunter-ink' : 'prey-ink') + '">' + esc(m.name) + '</span>' +
+        '<span class="msg-meta"><span class="mono ' + (m.role === 'hunter' ? 'hunter-ink' : m.role === 'spectator' ? 'lime-ink' : 'prey-ink') + '" translate="no">' + esc(m.name) + '</span>' +
         '<span class="muted">' + clock(Math.max(0, (m.T - s.headT) / 1000)) + '</span></span>' +
-        '<span class="msg-text">' + esc(m.text) + '</span></li>').join('')
+        '<span class="msg-text" translate="no">' + esc(m.text) + '</span></li>').join('')
     : '<li class="chat-empty muted">' + (tab === 'team' ? 'Only your side can read this channel.' : 'Everyone in the match can read this channel.') + '</li>';
   const box = $('#chat-list');
   if (setHTML(box, html)) box.scrollTop = box.scrollHeight;

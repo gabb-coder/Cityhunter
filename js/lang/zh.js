@@ -1,0 +1,310 @@
+// Simplified Chinese (简体中文).
+//
+// Keys are the English text exactly as the app shows it. See js/i18n.js for
+// how `exact` and `patterns` are used. In patterns, {} matches any text (it
+// is translated again on its own) and {n} matches a number or a clock; {0},
+// {1}... in the translation are those matches in order.
+//
+// Terms: prey 猎物 · hunter 猎人 · ping 定位 · zone 区域 · head start 先跑时间
+//        catch 抓捕 · lobby 房间 · host 房主 · callsign 代号 · Glowcoin 荧光币
+
+export const ZH = {
+  exact: {
+    // ---- shared words ----
+    'PREY': '猎物', 'HUNTER': '猎人', 'WATCHING': '观战中', 'HOST': '房主', 'PLAYER': '玩家',
+    'Host': '房主', 'Ready': '已准备', 'Not ready': '未准备', 'Offline': '离线', 'Connected': '已连接', 'Watching': '观战中',
+    '(you)': '（你）', 'left': '剩余', 'paused': '已暂停', 'head start': '先跑时间', 'live view': '实时视角',
+    'Cancel': '取消', 'Close': '关闭', 'Got it': '知道了', 'Home': '首页', 'Shop': '商店', 'Chat': '聊天', 'Show': '显示',
+    'Remove': '移除', 'Resume': '继续', 'Pause': '暂停', 'Reset': '重置', 'Replay': '回放', 'Off': '关闭', 'Joined': '已加入',
+    'just now': '刚刚', 'live': '实时', 'LIVE': '实时', 'out of zone': '在区域外', 'NO GPS': '无 GPS', 'Active': '生效中',
+    'tap to cancel': '点按取消', 'in range': '在范围内', 'too far': '太远', 'last seen': '上次位置',
+    'north': '北', 'north-east': '东北', 'east': '东', 'south-east': '东南', 'south': '南', 'south-west': '西南', 'west': '西', 'north-west': '西北',
+
+    // ---- modes, rules, abilities (from js/config.js) ----
+    'Dead Reckoning': '盲追模式', 'DEAD RECKONING': '盲追模式', 'Skirmish': '遭遇战', 'SKIRMISH': '遭遇战',
+    'Prey show up only as timed pings. The zone stays the same size.': '猎物只在定时定位时出现。区域大小不变。',
+    'Short clock and a zone that closes in. Built for one park and fast rounds.': '时间短，区域会不断缩小。适合在一个公园里快速开局。',
+    'Match length': '对局时长', 'Head start': '先跑时间', 'Prey ping every': '猎物定位间隔', 'Play zone radius': '区域半径', 'Zone shrinks to': '区域缩小到',
+    'Ghost': '幽灵', 'Decoy': '诱饵', 'Jammer': '干扰器', 'Safe House': '安全屋', 'Scan': '扫描', 'Tracker': '追踪器', 'Proximity Radar': '近距雷达', 'Lockdown': '封锁',
+    'Your next ping is skipped. Hunters see nothing new.': '跳过你的下一次定位。猎人看不到新位置。',
+    'Drop a fake ping where you stand, then walk away.': '在你站的地方留下一个假定位，然后走开。',
+    'Force an instant ping of every prey right now.': '立刻对所有猎物强制定位一次。',
+    'Skip your next ping': '跳过下一次定位', 'Drop a fake ping': '放一个假定位', 'Double your circle': '定位圈翻倍', 'No catches here': '这里不会被抓',
+    'Ping all prey now': '立刻定位所有猎物', 'Show direction of travel': '显示移动方向', 'Shrink the zone': '缩小区域',
+
+    // ---- home ----
+    'Real streets, real chase. Hunters track the pings, prey run for cover, and every catch flips a player to the other side.': '真实街道，真实追逐。猎人追踪定位，猎物四处躲藏，每次抓捕都会让一名玩家倒戈。',
+    'Run during the head start': '趁先跑时间逃走', 'Survive every ping': '撑过每一次定位', 'Caught? Now you hunt': '被抓了？轮到你追',
+    'Your callsign': '你的代号', 'HOST A HUNT': '创建追捕', 'or join a lobby': '或加入房间', 'CODE': '房间码', 'Lobby code': '房间码', 'JOIN': '加入',
+    'Watch a match': '观战', 'Practice round': '练习局', 'Report a problem': '报告问题',
+    'Your location is shared with your lobby only while a match is live.': '只有在对局进行时，你的位置才会分享给同房间的人。',
+    'Your hosted lobby': '你创建的房间', 'Match in progress': '对局进行中', 'Resume hosting': '继续主持', 'Rejoin': '重新加入', 'Forget this match': '忘记这场对局',
+    'Install City Hunter on this phone': '把 City Hunter 安装到这台手机', 'For full screen: tap Share, then “Add to Home Screen”.': '想全屏使用：点“分享”，再点“添加到主屏幕”。',
+    'Switch to dark theme': '切换到深色主题', 'Switch to sunlight theme': '切换到阳光主题',
+    'Sound alerts on. Tap to mute.': '声音提示已开。点按静音。', 'Sound alerts off. Tap to turn on.': '声音提示已关。点按开启。',
+    'Sound alerts on': '声音提示已开', 'Sound alerts off': '声音提示已关',
+    'Pick a callsign first': '请先填写代号', 'Opening lobby…': '正在创建房间…',
+    'Could not reach the game server. Check your connection.': '无法连接游戏服务器。请检查网络。',
+    'Could not connect. Check your connection.': '无法连接。请检查网络。',
+    'That match has already started': '这场对局已经开始', 'That lobby is full': '房间已满', 'Could not join that lobby': '无法加入该房间',
+    'This host does not allow spectators': '房主不允许观战', 'The host removed you from that lobby': '房主已将你移出该房间',
+    'Your app is out of date. Reload the page and try again.': '你的应用版本过旧。请刷新页面后重试。',
+    'The host closed the lobby': '房主关闭了房间', 'The host removed you from the match': '房主已将你移出对局', 'The host did not come back': '房主没有回来',
+
+    // ---- lobby ----
+    'LOBBY': '房间', 'Leave lobby': '离开房间', 'Open host console': '打开房主控制台',
+    'Friends enter this on the home screen': '朋友在首页输入这个房间码', 'Show a QR code to join': '显示加入二维码', 'Share lobby code': '分享房间码',
+    'Mode': '模式', 'Rules': '规则', 'Starting hunters': '初始猎人', 'Fewer hunters': '减少猎人', 'More hunters': '增加猎人',
+    'Play zone': '游戏区域', 'Map of the play zone': '游戏区域地图', 'Set on map': '在地图上设置',
+    'Placed on the map by the host': '由房主在地图上设置', 'Centred on you when the hunt starts': '开始时以你的位置为中心', 'Centred on the host when the hunt starts': '开始时以房主的位置为中心',
+    'Waiting for your GPS fix…': '正在等待你的 GPS 定位…', 'The host has not placed the zone yet': '房主还没有设置区域',
+    'Lobby chat': '房间聊天', 'Tap a role chip to choose who starts as a hunter.': '点按角色标签，选择谁先当猎人。', 'The host picks the starting hunters.': '由房主选择初始猎人。',
+    'Safety rules': '安全须知', 'START HUNT': '开始追捕', 'I’M READY': '我准备好了', 'READY · WAITING FOR HOST': '已准备 · 等待房主', 'WATCHING · WAITING FOR HOST': '观战中 · 等待房主',
+    'Waiting for players to join': '等待玩家加入', 'You need at least one hunter and one prey': '至少需要一名猎人和一名猎物',
+    'Allow location access to set the play zone': '请允许获取位置，以便设置游戏区域', 'Set the play zone on the map, or wait for your GPS fix': '请在地图上设置区域，或等待 GPS 定位',
+    'Waiting for your GPS fix': '正在等待你的 GPS 定位', 'Invite link copied': '邀请链接已复制',
+    'Close this lobby?': '关闭这个房间？', 'Everyone in it will be sent back to the home screen.': '房间里的所有人都会回到首页。', 'Close lobby': '关闭房间',
+    'Scan to join': '扫码加入', 'QR code that opens this lobby': '打开这个房间的二维码',
+    'Point a phone camera at the code. It opens City Hunter with this lobby filled in.': '用手机相机对准二维码，就会打开 City Hunter 并自动填好房间码。',
+
+    // ---- play zone picker ----
+    'PLAY ZONE': '游戏区域', 'Back to lobby': '返回房间', 'Set the play zone': '设置游戏区域', 'Zone radius': '区域半径',
+    'Drag the map to place the play zone': '拖动地图来设置游戏区域', 'Drag the map. The dashed circle is the play zone.': '拖动地图。虚线圆圈就是游戏区域。',
+    'My location': '我的位置', 'SET ZONE': '确定区域', 'Waiting for a GPS fix': '正在等待 GPS 定位',
+    'No GPS fix yet: drag the map to where you want to play': '还没有 GPS 定位：把地图拖到你想玩的地方',
+
+    // ---- safety ----
+    'PLAY SAFE': '安全第一', 'Roads come first': '过马路最重要', 'Stop at every road and crossing. No catch is worth stepping into traffic.': '遇到马路和路口都要停下。任何抓捕都不值得你闯进车流。',
+    'Public places only': '只在公共场所', 'Stay out of private property, building sites, railways and anywhere marked no entry. No climbing.': '不要进入私人场所、工地、铁路和任何禁止进入的地方。不要攀爬。',
+    'Eyes up': '抬头看路', 'Look where you are going. Check the map when you are standing still.': '走路时看前方。停下来再看地图。',
+    'A tag is a light touch': '碰一下就算抓到', 'No grabbing, tackling or blocking. Give other people on the street plenty of room.': '不要拉扯、扑倒或阻挡。给路上的其他人留出足够空间。',
+    'Need help? Say so': '需要帮助就说出来', 'The lifebuoy button on the map pauses the match for everyone and shows them where you are.': '地图上的救生圈按钮会让所有人暂停对局，并显示你的位置。',
+    'I’ll play safe': '我会注意安全', 'Need help?': '需要帮助？',
+    'This pauses the match for everyone, sounds an alarm on their phones and shows them where you are.': '这会让所有人暂停对局，在他们的手机上响起警报，并显示你的位置。',
+    'Pause and ask for help': '暂停并求助', 'I need help: pause the match': '我需要帮助：暂停对局', 'Help is already requested': '已经发出求助',
+    'HELP REQUESTED': '已发出求助', 'Everyone can see where you are. The match is paused.': '所有人都能看到你的位置。对局已暂停。',
+    'The match is paused. Their position is on your map.': '对局已暂停。对方的位置已显示在你的地图上。', 'I’m OK': '我没事了', 'Match resumed': '对局继续',
+
+    // ---- role reveal ----
+    'ROLE ASSIGNED': '角色已分配', 'YOU ARE': '你是', 'The hunt is live': '追捕已开始',
+    'Hunters are locked in place until the clock hits zero. Use it to get distance and cover.': '倒计时结束前猎人不能移动。趁现在拉开距离，找好掩护。',
+    'You are locked in place until the clock hits zero. Prey are using it to get away.': '倒计时结束前你不能移动。猎物正趁机逃走。',
+    'Hunters are moving. Open the map and keep your distance.': '猎人开始行动了。打开地图，保持距离。',
+    'You are released. Open the map and start hunting.': '你可以出发了。打开地图，开始追捕。',
+    'Your catch PIN': '你的抓捕 PIN', 'Show PIN': '显示 PIN', 'Hide PIN': '隐藏 PIN', 'PIN hidden': 'PIN 已隐藏',
+    'How a catch works': '如何抓捕', 'Tag the prey, tap': '碰到猎物后，点按', 'CATCH': '抓捕', 'OPEN MAP': '打开地图',
+
+    // ---- map HUD, banners, sheet ----
+    'Live map': '实时地图', 'Next ping': '下次定位', 'Next prey ping': '下次猎物定位',
+    'Match paused by the host': '房主已暂停对局', 'Paused: waiting for players to reconnect': '已暂停：等待玩家重新连接',
+    'Hold your position until the head start ends': '先跑时间结束前请原地不动', 'Locked until the head start ends': '先跑时间结束后解锁',
+    'Head start over. Go hunt.': '先跑时间结束。出发追捕。', 'Hunters are released. Stay hidden.': '猎人出动了。藏好。',
+    'Abilities and actions': '技能与操作', 'Hunter actions': '猎人操作', 'Spectator actions': '观战操作',
+    'Collapse panel': '收起面板', 'Expand panel': '展开面板', 'Add slot': '添加技能', 'Add an ability from the shop': '从商店添加技能',
+    'Prey chat': '猎物频道', 'Hunter chat': '猎人频道', 'I’ve been caught': '我被抓到了',
+    'Hold to talk': '按住说话', 'Hold to talk to your team': '按住和队友说话', 'Connecting…': '连接中…', 'Live…': '通话中…',
+    'No prey pinged yet': '还没有猎物被定位', 'No prey has pinged yet': '还没有猎物被定位',
+    'Host console': '房主控制台', 'Recenter map on me': '回到我的位置', 'Stay inside until release': '出发前留在圈内',
+    'You are watching. Everyone is shown live; players cannot see you.': '你正在观战。所有人都实时显示；玩家看不到你。', 'Stop watching': '停止观战',
+    'Scan complete': '扫描完成', 'Hunters used Scan: your position was pinged': '猎人使用了扫描：你的位置被定位了',
+    'Ghost used: this ping was skipped': '幽灵已使用：这次定位被跳过', 'Decoy armed. It appears at your next ping.': '诱饵已布置。下一次定位时出现。',
+    'Decoy needs a GPS fix': '诱饵需要 GPS 定位', 'Safe House needs a GPS fix': '安全屋需要 GPS 定位', 'Tracker needs a GPS fix': '追踪器需要 GPS 定位',
+    'A Lockdown is already running': '封锁已经在生效', 'Lockdown over: the zone is back to full size': '封锁结束：区域恢复原大小', 'The host moved you back to prey': '房主把你改回了猎物',
+    'The host forced a ping': '房主强制定位了一次', 'No teammates online to hear you': '没有在线的队友能听到你', 'Voice is reconnecting': '语音正在重新连接',
+    'Microphone access is needed for voice': '语音需要麦克风权限',
+    'Final zone': '最终区域', 'The zone has started to close in': '区域开始缩小了',
+    'Tap the map where your team should look': '点按地图，标出队友该去查看的位置', 'Pin dropped for your team': '已为队友放置标记', 'Pin removed': '标记已移除',
+    'Drop a pin for your team': '为队友放置标记', 'Remove your team pin': '移除你的标记', 'Cancel placing a pin': '取消放置标记', 'Your pin': '你的标记',
+    'Track which prey?': '追踪哪个猎物？',
+    'Battery saver off': '省电模式已关', 'Battery saver on. Tap to turn off.': '省电模式已开。点按关闭。', 'Battery saver off. Tap to turn on.': '省电模式已关。点按开启。',
+    'Battery saver': '省电模式', 'tap to wake': '点按唤醒',
+
+    // ---- shop ----
+    'ABILITY SHOP': '技能商店', 'Ability shop': '技能商店', 'Ability side': '技能阵营', 'Prey abilities': '猎物技能', 'Hunter abilities': '猎人技能',
+    'BUY': '购买', 'Back to map': '返回地图', 'BACK TO MAP': '返回地图',
+    'Earn Glowcoin by surviving pings as prey and landing catches as a hunter. Abilities stay with you if you switch sides.': '当猎物撑过定位、当猎人完成抓捕都能赚到荧光币。换阵营后技能仍然保留。',
+
+    // ---- chat ----
+    'CHAT': '聊天', 'LOBBY CHAT': '房间聊天', 'Close chat': '关闭聊天', 'Channel': '频道', 'Everyone': '所有人', 'Message': '消息', 'Send message': '发送消息',
+    'Only your side can read this channel.': '只有你这一方能看到这个频道。', 'Everyone in the match can read this channel.': '对局中的所有人都能看到这个频道。',
+
+    // ---- catch ----
+    'Confirm catch': '确认抓捕', 'CONFIRM CATCH': '确认抓捕', 'Who did you tag?': '你碰到了谁？', 'PIN': 'PIN', 'Delete digit': '删除一位',
+    'Checking with the host…': '正在向房主确认…', 'No prey left to catch.': '没有可抓的猎物了。', 'in a Safe House': '在安全屋里',
+    'That player cannot be caught right now.': '现在无法抓捕这名玩家。', 'They are inside a Safe House. Wait it out.': '对方在安全屋里。等它失效。',
+    'No connection to the host. Try again.': '无法连接房主。请重试。',
+    'CAUGHT': '抓到了', 'BACK TO THE HUNT': '回到追捕',
+    'You have been tagged': '你被碰到了', 'YOU’VE BEEN': '你已被', 'TAGGED': '碰到', 'SHOW YOUR': '出示你的',
+    'Turn your screen to the hunter so they can type this PIN.': '把屏幕转向猎人，让对方输入这个 PIN。',
+    'Turn your brightness up': '请把屏幕调亮', 'Waiting for a hunter': '等待猎人', 'No hunter is close enough yet': '还没有猎人足够近', 'Nearest hunter': '最近的猎人',
+    'Not caught? Back to the map': '没被抓到？返回地图',
+    'You are now a hunter': '你现在是猎人', 'YOU ARE NOW A': '你现在是', 'That was the last prey.': '那是最后一个猎物。',
+    'Glowcoin carried over': '保留的荧光币', 'Hunter channel': '猎人频道', 'START HUNTING': '开始追捕',
+    'YOU’VE BEEN CONVERTED': '你已转为猎人', 'Dismiss': '关闭提示',
+
+    // ---- GPS lost / out of zone ----
+    'GPS SIGNAL LOST': 'GPS 信号丢失', 'LOCATION IS OFF': '定位已关闭', 'Grace': '宽限', 'Grace period': '宽限时间', 'Show GPS help': '显示 GPS 帮助',
+    'Hunters still see your last fix. Get back under open sky: away from tall buildings, tunnels and covered walkways.': '猎人仍能看到你最后的位置。请回到开阔的地方：远离高楼、隧道和有顶的通道。',
+    'City Hunter cannot read your location. Turn it on for this site, then tap Retry.': 'City Hunter 无法获取你的位置。请为本网站开启定位，然后点“重试”。',
+    'If no new fix arrives before this runs out, the host is told and your circle on hunters’ maps starts growing.': '如果倒计时结束前还没有新的定位，房主会收到通知，你在猎人地图上的圆圈会开始变大。',
+    'The grace period is over. The host has been told and your circle on the other side’s map is growing.': '宽限时间已结束。房主已收到通知，你在对方地图上的圆圈正在变大。',
+    'Settings → Privacy & Security → Location Services → on. Then Safari Websites (or your browser) → While Using, with Precise Location on.': '设置 → 隐私与安全性 → 定位服务 → 打开。然后在“Safari 网站”（或你的浏览器）中选择“使用期间”，并打开“精确位置”。',
+    'Settings → Location → on. Then tap the lock icon in the address bar → Permissions → Location → Allow.': '设置 → 位置信息 → 打开。然后点按地址栏里的锁形图标 → 权限 → 位置信息 → 允许。',
+    'Battery saver and low-power modes can switch GPS off. Turn them off while you play.': '省电模式和低电量模式可能会关闭 GPS。游戏时请把它们关掉。',
+    'Location settings': '定位设置', 'Retry GPS': '重试 GPS', 'Hide and keep playing': '隐藏并继续游戏', 'Turn location on': '开启定位',
+    'YOU LEFT THE PLAY ZONE': '你离开了游戏区域', 'YOUR LIVE POSITION IS REVEALED': '你的实时位置已暴露', 'GET BACK IN': '快回区域',
+    'When this hits zero, your exact live position is shown to every hunter until you’re back inside.': '倒计时归零后，所有猎人都会看到你的实时位置，直到你回到区域内。',
+    'Every hunter can see exactly where you are until you’re back inside the zone.': '在你回到区域内之前，所有猎人都能看到你的准确位置。',
+    'The hunt is inside the dashed line. Prey out here are revealed to you live.': '追捕在虚线以内进行。跑到外面的猎物会对你实时暴露。',
+    'Way back to the zone': '返回区域的路线', 'No GPS fix': '没有 GPS 定位', 'Head back toward the middle of the zone.': '请往区域中心走。',
+
+    // ---- connection ----
+    'CONNECTION LOST': '连接中断', 'HOST OFFLINE': '房主离线', 'Retry now': '立即重试', 'Leave match': '离开对局',
+    'Offline for': '已离线', 'Match clock': '对局时间', 'Your spot is held for': '位置保留时间', 'Your last ping': '你的上次定位', 'Last prey ping': '猎物上次定位',
+    'If host doesn’t return': '如果房主没有回来', 'Match ends, no winner': '对局结束，没有赢家', 'Gives up in': '放弃倒计时', 'none yet': '还没有',
+    'released: you rejoin as a hunter': '已释放：你将以猎人身份回归',
+    'Your phone lost its connection. The match keeps running, and hunters see your last ping until you’re back.': '你的手机断开了连接。对局继续进行，在你回来之前猎人只能看到你上次的定位。',
+    'Your phone lost its connection. The match keeps running, and your team sees your last position until you’re back.': '你的手机断开了连接。对局继续进行，在你回来之前队友只能看到你上次的位置。',
+    'Your phone lost its connection to the lobby. Trying to get you back in.': '你的手机与房间断开了连接。正在帮你重新加入。',
+    'The host’s phone dropped out, so the match is paused for everyone. Stay where you are: the clock and pings resume the moment the host is back.': '房主的手机掉线了，所有人的对局都已暂停。请留在原地：房主一回来，计时和定位就会继续。',
+    'The host’s phone dropped out. The lobby comes back as soon as they reconnect.': '房主的手机掉线了。对方重新连接后房间会恢复。',
+    'Leave this match?': '离开这场对局？', 'You give up your spot and go back to the home screen.': '你会放弃自己的位置并回到首页。',
+
+    // ---- results ----
+    'HUNTERS': '猎人', 'WIN': '获胜', 'SURVIVED': '幸存', 'NO': '没有', 'WINNER': '赢家', 'MATCH OVER': '对局结束',
+    'The host did not come back, so the match was called off.': '房主没有回来，对局已取消。', 'The host ended the match early.': '房主提前结束了对局。',
+    'Your match': '你的战绩', 'Share result': '分享战绩', 'survived as prey': '作为猎物存活', 'catch as hunter': '次猎人抓捕', 'catches as hunter': '次猎人抓捕', 'Glowcoin earned': '获得荧光币',
+    'Leaderboard': '排行榜', 'Starting hunter': '初始猎人', 'MVP': 'MVP', 'Left the match': '已离开对局', 'Survived the whole hunt': '全程存活', 'Still free at the end': '结束时仍未被抓',
+    'Match replay': '对局回放', 'Map of everyone’s routes': '所有人的路线图', 'Map of your route': '你的路线图', 'No routes were recorded this match.': '这场对局没有记录到路线。',
+    'Blue as prey, orange as hunter': '蓝色是猎物，橙色是猎人', 'thick line is you': '粗线是你', 'converted': '已转为猎人',
+    'REMATCH': '再来一局', 'PRACTICE AGAIN': '再练一局', 'WAITING FOR HOST': '等待房主', 'Result image saved': '战绩图片已保存',
+
+    // ---- host console ----
+    'HOST CONSOLE': '房主控制台', 'Close host console': '关闭房主控制台', 'Match': '对局', 'Ping now': '立即定位', 'End match now': '立即结束对局',
+    'Make hunter': '设为猎人', 'Make prey': '设为猎物', 'Out of the match': '已出局', 'No GPS fix yet': '还没有 GPS 定位',
+    'No GPS · grace over, circle widening': '无 GPS · 宽限结束，圆圈扩大中', 'Out of zone · revealed to hunters': '在区域外 · 已向猎人暴露', 'Out of zone · countdown running': '在区域外 · 倒计时中',
+    'The console shows connection and GPS health only. It never shows where anyone is.': '控制台只显示连接和 GPS 状态，绝不会显示任何人的位置。',
+    'End the match now?': '现在结束对局？', 'It ends for everyone with no winner.': '所有人的对局都会结束，没有赢家。', 'End match': '结束对局',
+    'They are dropped from this lobby and cannot rejoin it.': '对方会被移出这个房间，并且无法再加入。', 'Remove player': '移除玩家',
+
+    // ---- problem report ----
+    'Problem report': '问题报告', 'Report text': '报告内容', 'Send report': '发送报告', 'Copy report': '复制报告', 'Report copied': '报告已复制',
+    'This is a log of what happened on this phone: connection, GPS and errors. It has no positions, PINs or chat. Send it to whoever looks after the game.': '这是这台手机上发生的事情的记录：连接、GPS 和错误。里面没有位置、PIN 或聊天内容。请把它发给负责这个游戏的人。',
+    'Select the text and copy it': '请选中文字后复制',
+
+    // ---- practice ----
+    'Practice round: tap the map to walk': '练习局：点按地图来走动',
+    'Practice: tap the map to walk. Get away from the hunters before the head start ends.': '练习：点按地图来走动。在先跑时间结束前远离猎人。',
+    'Your position was just pinged to the hunters. The bar at the top counts down to the next ping.': '你的位置刚刚被定位给了猎人。顶部的进度条是下一次定位的倒计时。',
+    'Orange circles show where hunters were last seen. Open the Shop: Ghost skips your next ping.': '橙色圆圈是猎人上次出现的位置。打开商店：幽灵可以跳过你的下一次定位。',
+    'Stay inside the dashed zone and keep moving. If a hunter reaches you, your PIN screen opens.': '留在虚线区域内并保持移动。如果猎人追上你，会弹出你的 PIN 画面。',
+    'Now you hunt. Walk to a blue circle, tap CATCH, and type the PIN. In a real match it is on their phone.': '现在轮到你追捕。走到蓝色圆圈旁，点“抓捕”，输入 PIN。真实对局中 PIN 在对方手机上。'
+  },
+
+  patterns: [
+    // ---- units and small pieces ----
+    ['{n} m', '{0} 米'], ['{n} km', '{0} 公里'], ['{n} min', '{0} 分钟'], ['{n} s', '{0} 秒'], ['{n}%', '{0}%'],
+    ['{} ago', '{0}前'], ['{n} lines', '{0} 行'], ['{n} unread', '{0} 条未读'], ['{n} GC', '{0} GC'], ['+{n} GC', '+{0} GC'],
+    ['{n} minutes {n} seconds', '{0} 分 {1} 秒'], ['{n} minute {n} seconds', '{0} 分 {1} 秒'], ['{n} minutes {n} second', '{0} 分 {1} 秒'], ['{n} minute {n} second', '{0} 分 {1} 秒'],
+    ['{n} seconds', '{0} 秒'], ['{n} second', '{0} 秒'], ['{n} minutes', '{0} 分钟'], ['{n} minute', '{0} 分钟'],
+    ['{} and {}', '{0}和{1}', 'inner'], ['{}, {}', '{0}、{1}', 'inner'], ['{} · {}', '{0} · {1}'],
+    ['BUILD {}', '版本 {0}'], ['owned ×{n}', '已有 ×{0}'], ['GPS ±{n} m', 'GPS ±{0} 米'], ['WEAK GPS ±{n} m', 'GPS 弱 ±{0} 米'],
+    ['≈{n} m', '约 {0} 米'], ['last seen {}', '上次出现在 {0}'], ['{n} m radius', '半径 {0} 米'], ['{n} km radius', '半径 {0} 公里'],
+    ['Players · {n}', '玩家 · {0}'], ['NEED {n}', '还差 {0}'], ['Head {}', '往{0}走'],
+
+    // ---- counts ----
+    ['{n} players · {n} ready · {n} hunter', '{0} 名玩家 · {1} 人已准备 · {2} 名猎人'], ['{n} players · {n} ready · {n} hunters', '{0} 名玩家 · {1} 人已准备 · {2} 名猎人'],
+    ['{n} player · {n} ready · {n} hunter', '{0} 名玩家 · {1} 人已准备 · {2} 名猎人'], ['{n} player · {n} ready · {n} hunters', '{0} 名玩家 · {1} 人已准备 · {2} 名猎人'],
+    ['{n} prey left', '剩余 {0} 名猎物'], ['{n} prey · {n} hunter', '{0} 名猎物 · {1} 名猎人'], ['{n} prey · {n} hunters', '{0} 名猎物 · {1} 名猎人'],
+    ['{n} catch', '{0} 次抓捕'], ['{n} catches', '{0} 次抓捕'], ['{n} routes', '{0} 条路线'],
+    ['{n} decoy out', '已放 {0} 个诱饵'], ['{n} decoys out', '已放 {0} 个诱饵'], ['DECOY · {n} ping left', '诱饵 · 还剩 {0} 次定位'], ['DECOY · {n} pings left', '诱饵 · 还剩 {0} 次定位'],
+    ['Survival bonus · {n} ping', '存活奖励 · {0} 次定位'], ['Survival bonus · {n} pings', '存活奖励 · {0} 次定位'],
+
+    // ---- home / joining ----
+    ['Joining {}…', '正在加入 {0}…'], ['Rejoining {}…', '正在重新加入 {0}…'], ['No lobby with code {}', '没有房间码为 {0} 的房间'],
+    ['Lobby codes are {n} characters', '房间码是 {0} 位'], ['Code: {}', '房间码：{0}'],
+    ['Waiting for {} · {} left', '等待 {0} · 剩余 {1}'], ['Reconnecting · attempt {n}', '正在重连 · 第 {0} 次'],
+
+    // ---- lobby ----
+    ['{} starts as {}. Tap to switch.', '{0} 开局是{1}。点按切换。'],
+    ['You need at least {n} players', '至少需要 {0} 名玩家'],
+    ['Remove {}?', '移除 {0}？'],
+
+    // ---- role reveal ----
+    ['Stay inside the zone and stay hidden. Your position goes out as a ping every {}.', '留在区域内并藏好。每隔 {0} 你的位置会被定位一次。'],
+    ['Hold your position until the head start ends. Then chase the pings: every prey shows up every {}.', '先跑时间结束前请原地不动。之后追踪定位：每隔 {0} 所有猎物会出现一次。'],
+    ['Only give this to a hunter who has physically tagged you. The host checks they are within {n} m.', '只把它告诉真正碰到你的猎人。房主会检查对方是否在 {0} 米内。'],
+    [', then type the {n}-digit PIN from their screen. You must be within {n} m.', '，然后输入对方屏幕上的 {0} 位 PIN。你必须在 {1} 米内。'],
+    ['Your catch PIN: {}', '你的抓捕 PIN：{0}'],
+
+    // ---- map ----
+    ['+{n} for every ping you survive', '每撑过一次定位 +{0}'], ['+{n} for every catch', '每次抓捕 +{0}'],
+    ['{}’s last ping was {} from you', '{0} 上次定位离你 {1}'],
+    ['Nearest: {}, last seen {} away', '最近：{0}，上次出现在 {1} 外'], ['{} is {} away · in range', '{0} 离你 {1} · 在范围内'],
+    ['{} is talking', '{0} 正在说话'], ['Scan · {n}', '扫描 · {0}'], ['Scan · need {n}', '扫描 · 还差 {0}'], ['{} ×{n}', '{0} ×{1}'],
+    ['On {}', '追踪 {0}'], ['{}, {n} owned. {}', '{0}，已有 {1} 个。{2}'],
+    ['SAFE HOUSE · {}', '安全屋 · {0}'], ['GHOST · skips next ping', '幽灵 · 跳过下次定位'], ['Last fix · {} ago', '上次定位 · {0}前'],
+    ['{} · NO GPS · {}', '{0} · 无 GPS · {1}'], ['{} · LIVE · out of zone', '{0} · 实时 · 在区域外'], ['{} · NEEDS HELP', '{0} · 需要帮助'],
+    ['{}’s pin · {}', '{0} 的标记 · {1}'], ['Your pin · {}', '你的标记 · {0}'], ['Zone edge · {}', '区域边界 · {0}'],
+    ['Zone closing in · {} now, {} at {} left', '区域正在缩小 · 现在 {0}，剩余 {2} 时缩到 {1}'],
+    ['Go back to your start point: you are {} away. Out of position at release means no catches for {n} s.', '回到你的出发点：你离它 {0}。出发时不在位置上，{1} 秒内不能抓捕。'],
+    ['Head-start penalty · unlocks in {}', '抢跑处罚 · {0} 后解锁'],
+    ['You left your start point during the head start: no catches for {n} s', '你在先跑时间内离开了出发点：{0} 秒内不能抓捕'],
+    ['{} left their start point during the head start ({})', '{0} 在先跑时间内离开了出发点（{1}）'],
+    ['{} moved {} in {}: GPS glitch or spoofing', '{0} 在 {2} 内移动了 {1}：GPS 异常或伪造位置'],
+    ['{} has had no GPS for {}. Their circle is now widening.', '{0} 已经 {1} 没有 GPS。对方的圆圈正在扩大。'],
+    ['{} left the zone: live position revealed', '{0} 离开了区域：实时位置已暴露'], ['{} is back inside the zone', '{0} 回到了区域内'],
+    ['{} is out of the match', '{0} 已出局'], ['{} was removed', '{0} 已被移除'], ['{} joined late as a hunter', '{0} 中途加入，成为猎人'],
+    ['{} caught {} · {n} prey left', '{0} 抓到了 {1} · 剩余 {2} 名猎物'],
+    ['{} used Scan: fresh fix on every prey', '{0} 使用了扫描：所有猎物都有了新定位'],
+    ['Tracking {} for the next {n} pings', '接下来 {1} 次定位追踪 {0}'],
+    ['You need {n} more GC for {}', '购买{1}还差 {0} GC'], ['{} is a {} ability', '{0}是{1}技能'],
+    ['Lockdown: the zone shrinks by {n}% for {n} min', '封锁：区域缩小 {0}%，持续 {1} 分钟'],
+    ['Radar: a prey is within {n} m', '雷达：{0} 米内有猎物'],
+    ['{} dropped a pin on the map', '{0} 在地图上放了标记'],
+    ['Battery saver on: the screen dims after {n} s', '省电模式已开：{0} 秒后屏幕变暗'],
+    ['Next ping {}', '下次定位 {0}'],
+    ['{} NEEDS HELP', '{0} 需要帮助'], ['{} needs help. The match is paused.', '{0} 需要帮助。对局已暂停。'], ['{} has already asked for help', '{0} 已经发出求助'],
+
+    // ---- shop (ability text from js/config.js) ----
+    ['Your ping circle doubles in size for {n} minutes.', '你的定位圈在 {0} 分钟内变成两倍大。'],
+    ['Mark a {n} m spot. You cannot be caught inside it for {n} s.', '标记一块 {0} 米的地方。{1} 秒内你在里面不会被抓。'],
+    ['See the nearest prey’s direction of travel for the next {n} pings.', '在接下来 {0} 次定位中看到最近猎物的移动方向。'],
+    ['Buzz when any prey is within {n} m, for {n} minutes.', '{1} 分钟内，只要有猎物进入 {0} 米就会提醒。'],
+    ['Shrink the play zone by {n}% for {n} minutes.', '把游戏区域缩小 {0}%，持续 {1} 分钟。'],
+    ['Buzz within {n} m', '{0} 米内提醒'],
+    ['Buy {} for {n} Glowcoin', '用 {1} 荧光币购买{0}'], ['Buy {} for {n} Glowcoin, you need {n} more', '用 {1} 荧光币购买{0}，还差 {2}'],
+
+    // ---- catch ----
+    ['Tag them, then type the {n}-digit PIN on their screen.', '碰到对方后，输入对方屏幕上的 {0} 位 PIN。'],
+    ['GPS range check passed: {} is ≈{} away (limit {})', 'GPS 距离检查通过：{0} 离你约 {1}（上限 {2}）'],
+    ['GPS range check passed: {} has no live fix, PIN decides', 'GPS 距离检查通过：{0} 没有实时定位，以 PIN 为准'],
+    ['No prey within {}. Get closer, then pick who you tagged.', '{0} 内没有猎物。靠近一些，再选择你碰到的人。'],
+    ['{}’s PIN', '{0} 的 PIN'], ['Ask {} to show you their screen.', '请 {0} 给你看屏幕。'],
+    ['Practice hint: their PIN is {n}. In a real match it is on their phone.', '练习提示：对方的 PIN 是 {0}。真实对局中它在对方手机上。'],
+    ['Wrong PIN. {n} tries left.', 'PIN 错误。还能试 {0} 次。'], ['Wrong PIN. {n} try left.', 'PIN 错误。还能试 {0} 次。'],
+    ['Too many wrong PINs. Locked for {}.', 'PIN 错误次数过多。锁定 {0}。'], ['Too many wrong PINs. Try again in {}.', 'PIN 错误次数过多。{0} 后再试。'],
+    ['Head-start penalty: you cannot catch for another {}.', '抢跑处罚：还有 {0} 不能抓捕。'],
+    ['Too far away. Get within {} and try again.', '太远了。靠近到 {0} 以内再试。'],
+    ['{} is now a hunter on your side.', '{0} 现在是你这边的猎人了。'],
+    ['Waiting for {}', '等待 {0}'], ['Confirming the catch · {} away', '正在确认抓捕 · 相距 {0}'], ['Nearest hunter · {} away', '最近的猎人 · 相距 {0}'],
+    ['Screen stays on · turn brightness up', '屏幕保持常亮 · 请调高亮度'], ['no GPS · PIN only', '无 GPS · 仅凭 PIN'], ['not seen yet · too far', '尚未出现 · 太远'],
+    ['CAUGHT BY {} · {}', '被 {0} 抓到 · {1}'], ['MOVED BY THE HOST · {}', '被房主调整 · {0}'], ['OUT OF THE HUNT · {}', '退出追捕 · {0}'],
+    ['You join {}. {n} prey are still out there.', '你加入了 {0} 一方。还有 {1} 名猎物在逃。'], ['You join {}. {n} prey is still out there.', '你加入了 {0} 一方。还有 {1} 名猎物在逃。'],
+    ['{n} prey are still out there.', '还有 {0} 名猎物在逃。'], ['{n} prey is still out there.', '还有 {0} 名猎物在逃。'],
+    ['{} caught you at {}. Now hunt the other {n}.', '{0} 在 {1} 抓到了你。现在去追其余 {2} 人。'], ['Now hunt the other {n}.', '现在去追其余 {0} 人。'],
+
+    // ---- GPS / zone / connection ----
+    ['{} to the nearest edge · {}', '距最近边界 {0} · {1}'], ['about {} walking', '步行约 {0}'],
+    ['Paused at {}', '暂停于 {0}'], ['Running · {}', '进行中 · {0}'],
+    ['Offline {}', '离线 {0}'], ['Offline {} · spot held {}', '离线 {0} · 位置保留 {1}'], ['No GPS for {}', '{0} 没有 GPS'],
+    ['GPS ±{n} m · {n} impossible move flagged', 'GPS ±{0} 米 · 标记了 {1} 次异常移动'], ['GPS ±{n} m · {n} impossible moves flagged', 'GPS ±{0} 米 · 标记了 {1} 次异常移动'],
+
+    // ---- results ----
+    ['{} caught the last prey, {}, with {} left.', '{0} 抓到了最后一个猎物 {1}，还剩 {2}。'], ['Every prey is out, with {} left.', '所有猎物都已出局，还剩 {0}。'],
+    ['{} outlasted the hunters.', '{0} 撑到了最后，猎人失败。'],
+    ['Prey → hunter at {}', '{0} 时由猎物变为猎人'], ['Last prey standing · {}', '最后一个猎物 · {0}'], ['Starting hunter · MVP', '初始猎人 · MVP'],
+    ['Your route · {}', '你的路线 · {0}'], ['Ring: caught by {} at {}', '圆环：{1} 被 {0} 抓到'], ['Ring: converted at {}', '圆环：{0} 转为猎人'],
+    ['{} GC', '{0} GC']
+  ]
+};

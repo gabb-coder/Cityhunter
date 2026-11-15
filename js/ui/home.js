@@ -6,6 +6,8 @@ import { CONFIG } from '../config.js';
 import { app } from '../state.js';
 import { act, onRender, themeButton, toast, screen } from './core.js';
 import { soundButton } from './safety.js';
+import { reportLink } from './extras.js';
+import { i18n } from '../i18n.js';
 
 const NAME_KEY = 'ch2.name';
 const root = $('#s-home');
@@ -21,7 +23,7 @@ function build() {
         '<div class="home-build"><span class="lime-ink">' + icon('logo', 28, 2.5) + '</span>' +
           '<span class="mono">BUILD ' + CONFIG.version + '</span>' +
           '<span id="home-theme" class="home-theme"></span></div>' +
-        '<h1 class="head home-title">CITY<br>HUNTER</h1>' +
+        '<h1 class="head home-title" translate="no">CITY<br>HUNTER</h1>' +
         '<p class="home-pitch">Real streets, real chase. Hunters track the pings, prey run for cover, and every catch flips a player to the other side.</p>' +
       '</div>' +
       '<ol class="steps">' +
@@ -39,7 +41,12 @@ function build() {
           '<input id="join-code" class="field code" aria-label="Lobby code" placeholder="CODE" maxlength="' + (CONFIG.lobby.codeLength + 1) + '" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
           '<button type="submit" class="btn btn-line head join-btn">JOIN</button>' +
         '</div>' +
+        '<div class="home-more">' +
+          '<button type="button" class="btn btn-sm btn-quiet" data-act="watch">' + icon('eye', 18) + 'Watch a match</button>' +
+          '<button type="button" class="btn btn-sm btn-quiet" data-act="practice">' + icon('flag', 18) + 'Practice round</button>' +
+        '</div>' +
         '<p class="home-foot small muted">' + icon('lock', 16) + '<span>Your location is shared with your lobby only while a match is live.</span></p>' +
+        '<div class="home-links"><span id="home-lang"></span>' + reportLink() + '</div>' +
       '</form>' +
     '</div>';
 
@@ -74,7 +81,7 @@ function callsign() {
   return v;
 }
 
-function join() {
+function join(watch = false) {
   const name = callsign();
   if (!name) return;
   const code = cleanCode($('#join-code').value);
@@ -83,13 +90,29 @@ function join() {
     $('#join-code').focus();
     return;
   }
-  app.go.join(name, code);
+  app.go.join(name, code, false, { watch });
 }
 
 act('host', () => {
   const name = callsign();
   if (name) app.go.host(name);
 });
+act('watch', () => join(true));
+act('practice', () => {
+  const name = callsign();
+  if (name) app.go.practice(name);
+});
+
+// Language switch: shows the language you would switch TO, in that language.
+function langButton() {
+  const next = i18n.next();
+  return '<button type="button" class="btn btn-quiet lang-btn" data-act="lang" lang="' + next.code + '" translate="no" aria-label="' + next.aria + '">' + icon('globe', 18) + next.name + '</button>';
+}
+act('lang', () => {
+  i18n.set(i18n.next().code);
+  renderHome();
+});
+
 act('resume', () => app.go.resume());
 act('resume-forget', () => {
   app.go.forget();
@@ -99,6 +122,7 @@ act('resume-forget', () => {
 function renderHome() {
   if (screen() !== 'home') return;
   $('#home-theme').innerHTML = soundButton('sm') + themeButton('sm');
+  $('#home-lang').innerHTML = langButton();
   renderInstall();
   const r = app.go.resumable ? app.go.resumable() : null;
   $('#home-resume').innerHTML = r
