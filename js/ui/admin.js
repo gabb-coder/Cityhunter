@@ -4,6 +4,7 @@ import { $, esc, setHTML, clock, showCode } from '../util.js';
 import { icon } from '../icons.js';
 import { app, snap } from '../state.js';
 import { act, onRender, setLayer, confirmModal, roleChip } from './core.js';
+import { reportLink } from './extras.js';
 
 const root = $('#s-admin');
 const send = (op, extra) => app.session.send({ k: 'admin', op, ...extra });
@@ -12,6 +13,7 @@ function statusLine(p, inMatch) {
   if (p.dropped) return ['Out of the match', 'muted'];
   if (!p.conn) return ['Offline ' + clock(p.offSec) + (inMatch ? ' · spot held ' + clock(Math.max(0, p.holdSec - p.offSec)) : ''), 'hunter-ink'];
   if (!inMatch) return [p.host ? 'Host' : 'Connected', 'lime-ink'];
+  if (p.role === 'spectator') return ['Watching', 'muted'];
   if (p.gpsOut) return ['No GPS · grace over, circle widening', 'hunter-ink'];
   if (p.gpsAge == null) return ['No GPS fix yet', 'hunter-ink'];
   if (p.gpsAge > 12) return ['No GPS for ' + p.gpsAge + ' s', 'hunter-ink'];
@@ -39,14 +41,14 @@ function renderAdmin() {
 
   const rows = s.admin.map((p) => {
     const [text, cls] = statusLine(p, inMatch);
-    const actions = (inMatch && !p.dropped
+    const actions = (inMatch && !p.dropped && p.role !== 'spectator'
         ? '<button type="button" class="btn btn-sm" data-act="adm" data-op="role" data-id="' + p.id + '">Make ' + (p.role === 'prey' ? 'hunter' : 'prey') + '</button>' +
           '<button type="button" class="btn btn-sm" data-act="adm" data-op="gc" data-amt="50" data-id="' + p.id + '">+50 GC</button>'
         : '') +
       (p.host ? '' : '<button type="button" class="btn btn-sm btn-hunter-line" data-act="adm-kick" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Remove</button>');
     return '<li class="card admin-player">' +
       '<div class="admin-row"><span class="avatar ' + p.role + '" aria-hidden="true">' + esc(p.name.charAt(0)) + '</span>' +
-        '<span class="player-main"><span class="mono player-name">' + esc(p.name) + (p.host ? ' (you)' : '') + '</span><span class="player-state ' + cls + '">' + text + '</span></span>' +
+        '<span class="player-main"><span class="mono player-name"><span translate="no">' + esc(p.name) + '</span>' + (p.host ? ' (you)' : '') + '</span><span class="player-state ' + cls + '">' + text + '</span></span>' +
         (inMatch ? '<span class="mono admin-gc lime-ink">' + p.gc + ' GC</span>' : '') + roleChip(p.role, 'chip-sm') + '</div>' +
       (actions ? '<div class="admin-actions">' + actions + '</div>' : '') +
     '</li>';
@@ -60,7 +62,7 @@ function renderAdmin() {
     '</header>' +
     '<div class="scroll admin-body pad-b">' + controls +
       '<section class="block"><h2 class="label">Players · ' + s.admin.length + '</h2><ul class="players">' + rows + '</ul>' +
-      '<p class="small muted">The console shows connection and GPS health only. It never shows where anyone is.</p></section>' +
+      '<p class="small muted">The console shows connection and GPS health only. It never shows where anyone is.</p>' + reportLink() + '</section>' +
     '</div>');
 }
 

@@ -4,6 +4,7 @@ import { $, esc, setHTML, setText, clock } from '../util.js';
 import { CONFIG } from '../config.js';
 import { app } from '../state.js';
 import { act, onRender, onTick, render, toast, confirmModal } from './core.js';
+import { reportLink } from './extras.js';
 
 const N = CONFIG.net;
 let lastPingWall = 0;
@@ -58,7 +59,7 @@ function renderNet() {
       '<p>' + body + '</p>' +
       '<ul class="net-facts">' + facts.map((f) => '<li><span>' + f[0] + '</span><span class="mono">' + f[1] + '</span></li>').join('') + '</ul>' +
       '<div class="net-btns"><button type="button" class="btn btn-lime" data-act="net-retry">Retry now</button>' +
-        '<button type="button" class="btn btn-quiet net-leave" data-act="net-leave">Leave match</button></div>' +
+        '<button type="button" class="btn btn-quiet net-leave" data-act="net-leave">Leave match</button>' + reportLink() + '</div>' +
     '</section>');
   tickNet();
 }

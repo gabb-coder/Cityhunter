@@ -77,7 +77,7 @@ function targetRow(t) {
     : t.d != null ? 'last seen ' + metres(t.d) + ' · too far' : 'not seen yet · too far';
   return '<label class="target' + (sel ? ' sel' : '') + (can ? '' : ' off') + '">' +
     '<input type="radio" name="target" value="' + t.id + '"' + (sel ? ' checked' : '') + (can ? '' : ' disabled') + '>' +
-    '<span class="mono target-name">' + esc(t.name) + '</span>' +
+    '<span class="mono target-name" translate="no">' + esc(t.name) + '</span>' +
     '<span class="mono target-note ' + (can ? 'lime-ink' : 'muted') + '">' + note + '</span>' +
   '</label>';
 }
@@ -126,6 +126,8 @@ function renderCatch() {
   const status = st.busy ? '<p class="pin-status muted" role="status">Checking with the host…</p>'
     : locked ? '<p class="pin-status hunter-ink" role="alert" id="lock-msg"></p>'
     : st.error ? '<p class="pin-status hunter-ink" role="alert">' + esc(st.error) + '</p>'
+    : s.practice && sel && s.practice.pins[sel.name]
+    ? '<p class="pin-status lime-ink">Practice hint: their PIN is ' + esc(s.practice.pins[sel.name]) + '. In a real match it is on their phone.</p>'
     : '<p class="pin-status muted">' + (sel ? 'Ask ' + esc(sel.name) + ' to show you their screen.' : '') + '</p>';
 
   const keyOff = !sel || st.busy || locked ? ' disabled' : '';

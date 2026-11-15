@@ -14,12 +14,13 @@ const P = CONFIG.ping;
 // Other modules add map items / banners / HUD state through these hooks.
 export const mapItemHooks = [];
 export const bannerHooks = [];
+export const mapButtonHooks = [];   // each returns { col: 'side' | 'main', html } or null
 
 // ---------------------------------------------------------------- map
 function ensureMap() {
   if (!app.map) {
     app.map = new MapView($('#map'));
-    if (app.sim) app.map.map.on('click', (e) => app.geo.simulate(e.latlng.lat, e.latlng.lng));
+    app.map.map.on('click', (e) => app.bus.emit('mapclick', { lat: e.latlng.lat, lng: e.latlng.lng }));
   }
   return app.map;
 }
@@ -74,7 +75,8 @@ function updateMap() {
   $('#s-game').style.setProperty('--sheet-h', map.pad.bottom + 'px');
 
   map.setZone(s.zone);
-  if (fix) map.setMe({ lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: app.geo.heading(), role: me.role, ghost: !!me.fx.ghost, stale: app.geo.lost });
+  if (fix && me.role !== 'spectator') map.setMe({ lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: app.geo.heading(), role: me.role, ghost: !!me.fx.ghost, stale: app.geo.lost });
+  else if (me.role === 'spectator') map.setMe(null);
 
   const items = [];
   for (const pg of s.pings) {
@@ -87,7 +89,7 @@ function updateMap() {
   }
   for (const l of s.live) {
     items.push({
-      id: 'l' + l.id, type: 'dot', tone: l.kind === 'mate' ? 'hunter' : 'prey', lat: l.lat, lng: l.lng,
+      id: 'l' + l.id, type: 'dot', tone: l.kind === 'mate' || l.role === 'hunter' ? 'hunter' : 'prey', lat: l.lat, lng: l.lng,
       label: l.name + ' · ' + (l.kind === 'revealed' ? 'LIVE · out of zone' : l.stale ? 'last seen' : 'live'), strong: l.kind === 'revealed'
     });
   }
@@ -106,6 +108,7 @@ function updateMap() {
 }
 
 let lastPingNo = null;
+let lastMapAt = 0;
 
 // ---------------------------------------------------------------- HUD
 function gpsChip() {
@@ -117,13 +120,14 @@ function gpsChip() {
 
 function renderHud(s) {
   const hunter = s.me.role === 'hunter';
+  const watching = s.me.role === 'spectator';
   const c = s.counts;
   const counts = hunter ? plural(c.prey, 'prey', 'prey') + ' left' : plural(c.prey, 'prey', 'prey') + ' · ' + plural(c.hunters, 'hunter');
   setHTML($('#hud'),
     '<div class="hud card-strong role-' + s.me.role + '">' +
       '<div class="hud-top">' + roleChip(s.me.role) +
         '<span class="hud-clock"><span class="mono" role="timer" aria-live="off" id="hud-clock">00:00</span><span class="hud-left" id="hud-left">left</span></span>' +
-        '<span class="hud-side"><span class="hud-counts">' + counts + '</span>' + gpsChip() + '</span>' +
+        '<span class="hud-side"><span class="hud-counts">' + counts + '</span>' + (watching ? '<span class="mono hud-gps">live view</span>' : gpsChip()) + '</span>' +
       '</div>' +
       '<div class="hud-ping"><span class="label" id="hud-ping-label">' + (hunter ? 'Next prey ping' : 'Next ping') + '</span>' +
         '<div class="bar"><i id="hud-bar"></i></div><span class="mono" id="hud-ping">00:00</span></div>' +
@@ -153,7 +157,12 @@ function tickHud() {
     lastPingNo = s.pingNo;
   }
   if (s.me.penaltyT) setText($('#catch-sub'), catchSub(s));
-  updateMap();
+  // Battery saver redraws the map less often.
+  const every = app.saver && app.saver.on ? CONFIG.saver.mapRefreshMs : 0;
+  if (performance.now() - lastMapAt >= every - 20) {
+    lastMapAt = performance.now();
+    updateMap();
+  }
   tickSheet(s, T);
 }
 
@@ -258,7 +267,12 @@ function renderSheet(s) {
   const min = app.ui.sheetMin;
   const handle = '<button type="button" class="sheet-handle" data-act="sheet-toggle" aria-expanded="' + !min + '" aria-label="' + (min ? 'Expand panel' : 'Collapse panel') + '"><span></span></button>';
   let html;
-  if (me.role === 'prey') {
+  if (me.role === 'spectator') {
+    html = handle +
+      '<p class="spec-note">You are watching. Everyone is shown live; players cannot see you.</p>' +
+      '<div class="row2">' + chatBtn('Chat', 'btn') +
+        '<button type="button" class="btn btn-line" data-act="spec-leave">Stop watching</button></div>';
+  } else if (me.role === 'prey') {
     const owned = Object.values(ABILITIES).filter((a) => a.side === 'prey' && ((me.inv[a.id] || 0) > 0 || slotState(a, me, T).on));
     const slots = owned.map((a) => slot(a, me, T)).join('') +
       (owned.length < 3 ? '<button type="button" class="slot add" data-act="shop" aria-label="Add an ability from the shop">' + icon('plus', 24, 2.5) + '<span>Add slot</span></button>' : '');
@@ -286,7 +300,7 @@ function renderSheet(s) {
       '</div>';
   }
   const sheet = $('#sheet');
-  sheet.setAttribute('aria-label', me.role === 'prey' ? 'Abilities and actions' : 'Hunter actions');
+  sheet.setAttribute('aria-label', me.role === 'prey' ? 'Abilities and actions' : me.role === 'spectator' ? 'Spectator actions' : 'Hunter actions');
   sheet.className = 'sheet role-' + me.role;
   setHTML(sheet, html);
 }
@@ -302,12 +316,20 @@ function tickSheet(s, T) {
   }
 }
 
+// Two columns: the one at the screen edge holds what you reach for most.
 function mapButtons(s) {
+  const extra = mapButtonHooks.map((fn) => fn(s)).filter(Boolean);
+  const side = extra.filter((x) => x.col === 'side').map((x) => x.html).join('');
+  const main = extra.filter((x) => x.col !== 'side').map((x) => x.html).join('');
   setHTML($('#map-btns'),
-    (s.me.host ? '<button type="button" class="icon-btn" data-act="admin" aria-label="Host console">' + icon('gear', 22) + '</button>' : '') +
-    '<button type="button" class="icon-btn help-btn" data-act="help" aria-label="I need help: pause the match">' + icon('help', 22) + '</button>' +
-    themeButton() +
-    '<button type="button" class="icon-btn" data-act="recenter" aria-label="Recenter map on me">' + icon('recenter', 22) + '</button>');
+    '<div class="mb-col">' +
+      (s.me.host ? '<button type="button" class="icon-btn" data-act="admin" aria-label="Host console">' + icon('gear', 22) + '</button>' : '') +
+      (s.me.role === 'spectator' ? '' : '<button type="button" class="icon-btn help-btn" data-act="help" aria-label="I need help: pause the match">' + icon('help', 22) + '</button>') +
+      side +
+    '</div>' +
+    '<div class="mb-col">' + main + themeButton() +
+      '<button type="button" class="icon-btn" data-act="recenter" aria-label="Recenter map on me">' + icon('recenter', 22) + '</button>' +
+    '</div>');
 }
 
 function renderGame() {
@@ -326,6 +348,7 @@ act('recenter', () => {
   if (!app.geo.fix) return toast('Waiting for a GPS fix');
   app.map.recenter(app.geo.fix);
 });
+act('spec-leave', () => app.go.leave());
 act('sheet-toggle', () => {
   app.ui.sheetMin = !app.ui.sheetMin;
   render();

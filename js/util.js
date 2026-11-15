@@ -15,8 +15,12 @@ export function setHTML(el, html) {
   return true;
 }
 
+// Compares against the last text WE set, not the DOM: the page may be
+// showing a translation of it (js/i18n.js).
 export function setText(el, text) {
-  if (el && el.textContent !== text) el.textContent = text;
+  if (!el || el.__text === text) return;
+  el.__text = text;
+  el.textContent = text;
 }
 
 const pad = (n) => String(n).padStart(2, '0');

@@ -18,6 +18,7 @@ export function installFairplay(host) {
 
   host.hooks.pos.push((p, next, now) => {
     const g = G();
+    if (g.practice) return;   // practice rounds teleport on purpose
 
     // ---- impossible moves ----
     if (p.pos && p.posAt) {

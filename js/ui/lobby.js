@@ -7,9 +7,10 @@ import { app, snap } from '../state.js';
 import { act, onRender, screen, toast, openModal, closeModal, confirmModal, roleName } from './core.js';
 import { zoneCard } from './zone.js';
 import { joinUrl } from './safety.js';
+import { reportLink } from './extras.js';
 
 const root = $('#s-lobby');
-const fmtRule = (key, v) => (key === 'zoneRadiusM' ? metres(v) : span(v));
+const fmtRule = (key, v) => (key === 'zoneRadiusM' ? metres(v) : key === 'zoneShrinkTo' ? (v >= 1 ? 'Off' : Math.round(v * 100) + '%') : span(v));
 
 function modeCard(m, on, host) {
   return '<button type="button" class="mode-card" data-act="mode" data-mode="' + m.id + '" aria-pressed="' + on + '"' + (host ? '' : ' disabled') + '>' +
@@ -22,12 +23,12 @@ function modeCard(m, on, host) {
 function playerRow(p, host) {
   const state = !p.conn ? 'Offline' : p.host ? 'Host' : p.ready ? 'Ready' : 'Not ready';
   const stateCls = !p.conn ? 'hunter-ink' : p.ready || p.host ? 'lime-ink' : 'muted';
-  const chip = host
+  const chip = p.role === 'spectator' ? '<span class="chip chip-sm chip-spectator">WATCHING</span>' : host
     ? '<button type="button" class="chip chip-sm chip-' + p.role + '" data-act="role" data-id="' + p.id + '" aria-label="' + esc(p.name) + ' starts as ' + roleName(p.role) + '. Tap to switch.">' + roleName(p.role) + '</button>'
     : '<span class="chip chip-sm chip-' + p.role + '">' + roleName(p.role) + '</span>';
   return '<li class="card player">' +
     '<span class="avatar ' + p.role + '" aria-hidden="true">' + esc(p.name.charAt(0)) + '</span>' +
-    '<span class="player-main"><span class="mono player-name">' + esc(p.name) + (p.you ? ' (you)' : '') + '</span>' +
+    '<span class="player-main"><span class="mono player-name"><span translate="no">' + esc(p.name) + '</span>' + (p.you ? ' (you)' : '') + '</span>' +
     '<span class="player-state ' + stateCls + '">' + state + '</span></span>' +
     chip +
   '</li>';
@@ -37,7 +38,10 @@ function renderLobby() {
   const s = snap();
   if (screen() !== 'lobby' || !s) return;
   const host = s.me.host;
-  const players = s.players;
+  const players = s.players.filter((p) => p.role !== 'spectator');
+  const watchers = s.players.filter((p) => p.role === 'spectator');
+  const watching = s.me.role === 'spectator';
+  const unread = app.session.unread.all + app.session.unread.team;
   const ready = players.filter((p) => p.ready || p.host).length;
   const hunters = players.filter((p) => p.role === 'hunter').length;
   const prey = players.length - hunters;
@@ -67,7 +71,9 @@ function renderLobby() {
       : '<span class="mono step-n hunter-ink">' + hunters + '</span>') +
     '</div>';
 
-  const footBtn = host
+  const footBtn = watching
+    ? '<button type="button" class="btn btn-xl btn-line" disabled>WATCHING · WAITING FOR HOST</button>'
+    : host
     ? '<button type="button" class="btn btn-xl btn-lime" data-act="start"' + (canStart ? '' : ' disabled') + '>START HUNT' + icon('arrowRight', 22, 2.5) + '</button>'
     : '<button type="button" class="btn btn-xl ' + (s.me.ready ? 'btn-line' : 'btn-lime') + '" data-act="ready" aria-pressed="' + s.me.ready + '">' +
         (s.me.ready ? 'READY · WAITING FOR HOST' : 'I’M READY') + '</button>';
@@ -96,11 +102,13 @@ function renderLobby() {
       '<section class="block"><h2 class="label">Rules</h2><div class="card rows">' + rules + stepper + '</div>' +
         '</section>' +
       zoneCard(s, host) +
-      '<section class="block"><h2 class="label">Players · ' + players.length + '</h2>' +
-        '<ul class="players">' + players.map((p) => playerRow(p, host)).join('') + '</ul>' +
+      '<section class="block"><div class="block-head"><h2 class="label">Players · ' + players.length + '</h2>' +
+        '<button type="button" class="btn btn-sm lobby-chat" data-act="chat">' + icon('chat', 18) + 'Lobby chat' + (unread ? '<span class="badge" aria-label="' + unread + ' unread">' + unread + '</span>' : '') + '</button></div>' +
+        '<ul class="players">' + players.concat(watchers).map((p) => playerRow(p, host)).join('') + '</ul>' +
         '<p class="small muted">' + (host ? 'Tap a role chip to choose who starts as a hunter.' : 'The host picks the starting hunters.') + '</p>' +
       '</section>' +
-      '<button type="button" class="btn btn-quiet safety-link" data-act="safety">' + icon('shieldPlain', 18) + 'Safety rules</button>' +
+      '<div class="link-row"><button type="button" class="btn btn-quiet safety-link" data-act="safety">' + icon('shieldPlain', 18) + 'Safety rules</button>' +
+        reportLink() + '</div>' +
     '</div>' +
     '<footer class="foot-bar pad-b">' +
       '<span class="small muted foot-note">' + esc(footNote) + '</span>' + footBtn +
@@ -155,4 +163,5 @@ act('leave', () => {
 });
 
 onRender(renderLobby);
+app.bus.on('session', (session) => session.on('chat', () => screen() === 'lobby' && renderLobby()));
 app.bus.on('screen', (name) => name === 'lobby' && renderLobby());

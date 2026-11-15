@@ -4,7 +4,9 @@
 const base = require('@playwright/test');
 
 const ORIGIN = 'http://127.0.0.1:8080';
-const URL = ORIGIN + '/index.html?ps=127.0.0.1:9000';
+// HARVEST=1 collects every string the app shows into harvest.jsonl (for translators).
+const HARVEST = process.env.HARVEST ? '&harvest' : '';
+const URL = ORIGIN + '/index.html?ps=127.0.0.1:9000' + HARVEST;
 const HOME = { latitude: 51.5073, longitude: -0.1657, accuracy: 5 };
 
 // A point `north` and `east` metres from HOME.
@@ -118,6 +120,16 @@ class Game {
 
   async close() {
     this.timers.forEach(clearInterval);
+    if (HARVEST) {
+      const all = new Set();
+      for (const ctx of this.contexts) {
+        for (const page of ctx.pages()) {
+          const got = await page.evaluate(() => (window.CH && window.CH.i18n.harvest ? Array.from(window.CH.i18n.harvest) : [])).catch(() => []);
+          got.forEach((t) => all.add(t));
+        }
+      }
+      require('fs').appendFileSync(require('path').join(__dirname, 'harvest.jsonl'), JSON.stringify(Array.from(all)) + '\n');
+    }
     for (const ctx of this.contexts) await ctx.close().catch(() => {});
   }
 }

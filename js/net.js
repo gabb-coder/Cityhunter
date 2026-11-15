@@ -78,6 +78,7 @@ export class HostNet extends Emitter {
 
     peer.on('error', (err) => {
       console.warn('[host net]', err.type, err.message);
+      if (window.CH && window.CH.diag) window.CH.diag.note('net', 'host peer error ' + err.type);
       if (err.type === 'peer-unavailable') return;
       if (onFail(err)) {
         this.closed = true;
@@ -201,6 +202,7 @@ export class ClientNet extends Emitter {
     peer.on('error', (err) => {
       if (this.peer !== peer) return;
       console.warn('[net]', err.type);
+      if (window.CH && window.CH.diag) window.CH.diag.note('net', 'peer error ' + err.type);
       if (this.state.status === 'online') return;
       if (err.type === 'peer-unavailable') {
         // Voice calls to an offline teammate raise this too: only react
@@ -325,6 +327,20 @@ export class ClientNet extends Emitter {
     window.removeEventListener('online', this._online);
     try { if (this.peer) this.peer.destroy(); } catch (e) { /* gone */ }
   }
+}
+
+// ---------------------------------------------------------------- none
+// Practice rounds have no other phones: a transport that does nothing.
+export class NullNet extends Emitter {
+  constructor() {
+    super();
+    this.signal = true;
+    this.peer = null;
+  }
+  start() { return Promise.resolve(); }
+  send() { return false; }
+  drop() {}
+  destroy() {}
 }
 
 // ---------------------------------------------------------------- local

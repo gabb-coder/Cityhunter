@@ -127,6 +127,6 @@ export function themeButton(extraClass = '') {
 act('theme', () => theme.toggle());
 theme.on('change', render);
 
-export const roleName = (role) => (role === 'hunter' ? 'HUNTER' : 'PREY');
+export const roleName = (role) => (role === 'hunter' ? 'HUNTER' : role === 'spectator' ? 'WATCHING' : 'PREY');
 export const roleChip = (role, cls = '') =>
   '<span class="chip chip-' + role + ' ' + cls + '">' + roleName(role) + '</span>';

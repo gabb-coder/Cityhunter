@@ -48,6 +48,7 @@ export function cue(name) {
   if (!c) return;
   log.push(name);
   if (log.length > 50) log.shift();
+  app.bus.emit('cue', name);
   if (c.buzz) buzz(c.buzz);
   if (!enabled || !c.notes.length) return;
   const a = audio();

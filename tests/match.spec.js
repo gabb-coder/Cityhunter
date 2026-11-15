@@ -108,7 +108,7 @@ test('team chat stays on its side; everyone channel reaches all; push-to-talk re
   const [A, B, C] = await game.match(['GABRIEL', 'NOMAD', 'VIPER'], ['VIPER'], RULES);
   await live(A);
 
-  await A.click('[data-act=chat]');
+  await A.click('#sheet [data-act=chat]');
   await A.fill('#chat-input', 'heading to the fountain');
   await A.press('#chat-input', 'Enter');
   await expect.poll(() => B.evaluate(() => window.CH.session.chat.team.map((m) => m.text))).toContain('heading to the fountain');

@@ -19,7 +19,7 @@ const N = CONFIG.net;
 
 export function loadHostSave() {
   const s = store.get(HOST_SAVE_KEY);
-  if (!s || !s.G || s.G.v !== 3 || Date.now() - s.at > 12 * 3600 * 1000) return null;
+  if (!s || !s.G || s.G.v !== 4 || Date.now() - s.at > 12 * 3600 * 1000) return null;
   const now = Date.now();
   for (const p of Object.values(s.G.players)) {
     p.cid = null;
@@ -41,11 +41,11 @@ export function installResilience(host) {
     store.set(HOST_SAVE_KEY, { at: lastSave, code: G().code, name: me ? me.name : '', G: JSON.parse(JSON.stringify(G(), (k, v) => (k === 'cid' ? undefined : v))) });
   };
   host.save = save;
-  window.addEventListener('pagehide', () => !host.stopped && save());
+  window.addEventListener('pagehide', () => !host.stopped && !G().practice && save());
 
   host.hooks.tick.push((now, dt) => {
     const g = G();
-    const remotes = host.all().filter((p) => !host.isHost(p));
+    const remotes = host.all().filter((p) => !host.isHost(p) && !p.bot);
 
     for (const p of remotes) {
       // Heartbeat timeout: the link is gone even if WebRTC has not noticed.
@@ -90,8 +90,8 @@ export function installResilience(host) {
       isolatedAt = 0;
     }
 
-    if (now - lastSave > N.hostSaveSec * 1000) save();
+    if (!g.practice && now - lastSave > N.hostSaveSec * 1000) save();
   });
 
-  for (const hook of ['start', 'end', 'lobby']) host.hooks[hook].push(() => setTimeout(save, 0));
+  for (const hook of ['start', 'end', 'lobby']) host.hooks[hook].push(() => !G().practice && setTimeout(save, 0));
 }

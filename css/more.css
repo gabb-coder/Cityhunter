@@ -1,0 +1,76 @@
+/* v2.2: spectators, battery saver, replay, practice, language, report */
+
+/* CJK text: the display fonts have no Chinese glyphs, so name system fonts. */
+:root[data-lang='zh'] {
+  --ff-head: 'Chakra Petch', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --ff-body: Inter, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --ff-mono: 'JetBrains Mono', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', ui-monospace, monospace;
+}
+:root[data-lang='zh'] .label { letter-spacing: 0.04em; }
+:root[data-lang='zh'] .home-title, :root[data-lang='zh'] .role-big { letter-spacing: 0; }
+
+.chip-spectator { background: var(--lime); color: var(--on-lime); }
+.avatar.spectator { border-color: var(--lime-ink); }
+.hud.role-spectator .hud-ping .mono { color: var(--lime-ink); }
+.spec-note { font-size: 14px; color: var(--muted); line-height: 1.4; padding-top: 4px; }
+
+.block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.block-head .btn { gap: 6px; white-space: nowrap; }
+.link-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.report-link { min-height: 48px; gap: 8px; font-size: 15px; }
+.report-text {
+  width: 100%; min-height: 160px; padding: 10px; border-radius: 12px; resize: vertical;
+  background: var(--inset); color: var(--text); border: 1px solid var(--bd-soft);
+  font: 500 11px/1.4 var(--ff-mono); white-space: pre;
+}
+
+/* ---------- home ---------- */
+.home-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.home-more .btn { gap: 6px; padding: 0 8px; color: var(--text); }
+.home-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.lang-btn { min-height: 48px; gap: 8px; font-size: 15px; color: var(--text); }
+.home-links span { display: flex; }
+.home-links span .btn { flex: 1; }
+
+/* ---------- map buttons: two columns, bottom-aligned ---------- */
+#map-btns { flex-direction: row; align-items: flex-end; gap: 8px; }
+.mb-col { display: flex; flex-direction: column; gap: 8px; }
+.mb-col .icon-btn { box-shadow: var(--shadow); }
+.icon-btn[aria-pressed='true'] { background: var(--lime); color: var(--on-lime); border-color: var(--lime-bd); }
+.coach { align-items: flex-start; font-size: 14px; }
+
+/* ---------- battery saver: dark screen ---------- */
+#dim {
+  position: absolute; inset: 0; z-index: 35;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: #000; color: #9BA5A0; text-align: center; cursor: pointer;
+}
+.dim-clock { font-size: min(72px, 18cqw); color: #D5DBD7; line-height: 1; }
+.dim-ping { font-size: 16px; }
+.dim-ping .mono { color: #D5DBD7; }
+.dim-hint { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 18px; }
+
+/* ---------- replay ---------- */
+.route-line { stroke-width: 2.5; opacity: 0.55; }
+.route-line.me { stroke-width: 4.5; opacity: 1; }
+.route-ring { stroke-width: 2; opacity: 0.7; }
+.route-ring.me { stroke-width: 3; opacity: 1; }
+.route-end { opacity: 0.8; }
+.route-end.me { opacity: 1; }
+.route-name { font: 700 9px var(--ff-mono); fill: var(--muted); }
+.route-name.me { fill: var(--text); font-size: 10px; }
+.replay-clock { font-size: 14px; color: var(--lime-ink); min-width: 44px; text-align: right; }
+.share-card { background: transparent; }
+
+/* ---------- tracker picker ---------- */
+.pick-list { display: flex; flex-direction: column; gap: 8px; }
+.pick { justify-content: space-between; font-size: 16px; }
+.pick .muted { font-size: 14px; font-weight: var(--fw-med); }
+
+.route-foot { flex-wrap: wrap; }
+.route-foot .route-text { flex: 1 1 150px; }
+.route-foot .btn { flex-shrink: 0; }
+
+/* Items in a scrolling column keep their natural height: a card with
+   overflow:hidden would otherwise be squashed and clip its own content. */
+.scroll > *:not(.grow) { flex-shrink: 0; }

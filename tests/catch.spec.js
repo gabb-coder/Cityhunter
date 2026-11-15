@@ -103,7 +103,7 @@ test('full match: hunters win, results, route replay, rematch', async ({ game })
   await expect(A.locator('.rank.you')).toContainText('GABRIEL');
   expect(await A.locator('.route-line.prey').count()).toBeGreaterThan(0);
   expect(await A.locator('.route-line.hunter').count()).toBeGreaterThan(0);
-  await expect(A.locator('.route-ring')).toHaveCount(1);
+  await expect(A.locator('.route-ring.me')).toHaveCount(1);
   await A.click('[data-act=replay]');
   await expect(B.locator('.res-foot')).toContainText('WAITING FOR HOST');
 

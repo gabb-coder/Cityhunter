@@ -3,16 +3,19 @@
 
 import { CONFIG } from './config.js';
 import { Emitter, dist, store } from './util.js';
+import { app } from './state.js';
 
 const PATH_KEY = 'ch2.path';
 
 export class Session extends Emitter {
-  constructor({ link, token, name, isHost, geo }) {
+  constructor({ link, token, name, isHost, geo, watch = false }) {
     super();
     this.link = link;
     this.token = token;
     this.name = name;
     this.isHost = isHost;
+    this.watch = watch;          // joined as a spectator
+    this.routes = null;          // everyone's routes, sent once at the end
     this.geo = geo;
     this.id = null;
     this.snap = null;
@@ -39,7 +42,7 @@ export class Session extends Emitter {
   }
 
   hello() {
-    this.link.send({ k: 'hello', token: this.token, name: this.name, v: CONFIG.protocol });
+    this.link.send({ k: 'hello', token: this.token, name: this.name, v: CONFIG.protocol, watch: this.watch || undefined });
   }
 
   send(msg) {
@@ -83,6 +86,10 @@ export class Session extends Emitter {
         this.chat[m.ch] = m.list || [];
         this.emit('chat');
         break;
+      case 'routes':
+        this.routes = m;
+        this.emit('update');
+        break;
       case 'reject':
       case 'bye':
         this.emit(m.k, m.reason);
@@ -102,6 +109,7 @@ export class Session extends Emitter {
     const key = s.code + ':' + s.round;
     if (this.pathKey !== key) {
       this.pathKey = key;
+      this.routes = null;
       const saved = store.get(PATH_KEY, null, sessionStorage);
       this.path = saved && saved.key === key ? saved.pts : [];
     }
@@ -144,7 +152,12 @@ export class Session extends Emitter {
       if (this.path.length > 3000) this.path.splice(0, this.path.length - 3000);
       if (this.path.length % 5 === 0) store.set(PATH_KEY, { key: this.pathKey, pts: this.path }, sessionStorage);
     }
-    if (Date.now() - this.lastPosSent >= CONFIG.net.posSendSec * 1000) this.sendPos();
+    if (Date.now() - this.lastPosSent >= this.posEveryMs()) this.sendPos();
+  }
+
+  // Battery saver reports position less often.
+  posEveryMs() {
+    return (app.saver && app.saver.on ? CONFIG.saver.posSendSec : CONFIG.net.posSendSec) * 1000;
   }
 
   sendPos() {
@@ -159,7 +172,7 @@ export class Session extends Emitter {
     if (this.closed) return;
     const peer = this.link.peer;
     this.send({ k: 'hb', peer: peer && peer.open ? peer.id : null });
-    if (Date.now() - this.lastPosSent >= CONFIG.net.posSendSec * 1000) this.sendPos();
+    if (Date.now() - this.lastPosSent >= this.posEveryMs()) this.sendPos();
   }
 
   // The host never came back: call the match off on this phone. Only our

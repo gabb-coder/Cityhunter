@@ -9,8 +9,8 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.1.0',
-  protocol: 3,             // bump when host and client messages change shape
+  version: '2.2.0',
+  protocol: 4,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
   catch: {
@@ -35,6 +35,8 @@ export const CONFIG = {
   // Out of zone.
   zone: {
     outGraceSec: 30,         // "GET BACK IN" countdown before live reveal
+    shrinkStartFrac: 0.2,    // shrinking zone: starts this far into the match
+    shrinkEndFrac: 0.85,     // ...and reaches its final size at this point
     walkSpeedMps: 1.4        // used for the "about 30 s walking" estimate
   },
 
@@ -75,6 +77,31 @@ export const CONFIG = {
     holdPenaltySec: 60       // a hunter outside it at release cannot catch for this long (0 = warn only)
   },
 
+  // Joining after the match has started, and watching.
+  late: {
+    joinAsHunter: true,      // a new player arriving mid-match joins the hunters
+    allowSpectators: true    // "Watch" on Home: sees everyone live, cannot act
+  },
+
+  // Team map pins ("check here").
+  marks: {
+    lifeSec: 180             // a pin disappears after this long
+  },
+
+  // Battery saver (the battery button on the map).
+  saver: {
+    dimAfterSec: 20,         // screen goes dark after this long without a touch
+    mapRefreshMs: 1000,      // map redraw interval while saving (normally 250)
+    posSendSec: 4            // position report interval while saving (normally net.posSendSec)
+  },
+
+  // Route replay on the results screen.
+  replay: {
+    minMoveM: 8,             // the host records a route point after this much movement
+    maxPoints: 500,          // per player; older points are thinned out
+    seconds: 9               // length of the animated replay
+  },
+
   // "Need help" button.
   safety: {
     showHelperLocation: true // everyone sees where the player who asked for help is
@@ -98,6 +125,15 @@ export const CONFIG = {
   // plus whatever key parameter your CARTO account gives you.
   map: {
     zoom: 17,
+    // Tiles saved for the play zone when a match starts, so the map works
+    // on a weak signal. Keep this small on free tile servers.
+    offline: {
+      enabled: true,
+      zooms: [15, 16, 17],   // which zoom levels to save
+      margin: 1.25,          // how far past the zone edge (x radius)
+      maxTiles: 160,         // per match; a zoom level that would exceed it is skipped
+      keepTiles: 800         // total kept on the phone; oldest are dropped first
+    },
     tiles: {
       dark: {
         url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -129,15 +165,15 @@ export const MODES = {
     id: 'DEAD_RECKONING',
     name: 'Dead Reckoning',
     icon: 'compass',
-    blurb: 'Prey show up only as timed pings. Hunters work from the last fix.',
-    rules: { matchSec: 2700, headStartSec: 180, pingSec: 120, zoneRadiusM: 600 }
+    blurb: 'Prey show up only as timed pings. The zone stays the same size.',
+    rules: { matchSec: 2700, headStartSec: 180, pingSec: 120, zoneRadiusM: 600, zoneShrinkTo: 1 }
   },
   SKIRMISH: {
     id: 'SKIRMISH',
     name: 'Skirmish',
     icon: 'bolt',
-    blurb: 'Tighter zone, shorter clock. Built for one park and fast rounds.',
-    rules: { matchSec: 900, headStartSec: 60, pingSec: 45, zoneRadiusM: 250 }
+    blurb: 'Short clock and a zone that closes in. Built for one park and fast rounds.',
+    rules: { matchSec: 900, headStartSec: 60, pingSec: 45, zoneRadiusM: 250, zoneShrinkTo: 0.4 }
   }
 };
 
@@ -146,14 +182,16 @@ export const RULE_OPTIONS = {
   matchSec: [300, 600, 900, 1200, 1800, 2700, 3600, 5400],
   headStartSec: [30, 60, 120, 180, 300],
   pingSec: [30, 45, 60, 90, 120, 180, 300],
-  zoneRadiusM: [100, 150, 250, 400, 600, 800, 1000, 1500]
+  zoneRadiusM: [100, 150, 250, 400, 600, 800, 1000, 1500],
+  zoneShrinkTo: [1, 0.6, 0.4, 0.25]   // final size as a share of the radius; 1 = never shrinks
 };
 
 export const RULE_LABELS = {
   matchSec: 'Match length',
   headStartSec: 'Head start',
   pingSec: 'Prey ping every',
-  zoneRadiusM: 'Play zone radius'
+  zoneRadiusM: 'Play zone radius',
+  zoneShrinkTo: 'Zone shrinks to'
 };
 
 export const ABILITIES = {
