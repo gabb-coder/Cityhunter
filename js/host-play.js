@@ -73,7 +73,7 @@ export function installPlay(host) {
   // ---------------------------------------------------------- shop
   host.on('buy', (p, m) => {
     const a = ABILITIES[m.id];
-    if (!a || !host.inMatch) return;
+    if (!a || !host.inMatch || p.role === 'spectator') return;
     if (p.gc < a.cost) return host.note(p, 'You need ' + (a.cost - p.gc) + ' more GC for ' + a.name);
     p.gc -= a.cost;
     p.inv[a.id] = (p.inv[a.id] || 0) + 1;
@@ -117,13 +117,18 @@ export function installPlay(host) {
       host.evAll({ type: 'toast', text: 'Hunters used Scan: your position was pinged', tone: 'hunter' }, (q) => q.role === 'prey');
       host.note(p, 'Scan complete', 'lime');
     },
-    tracker(p) {
-      if (!host.fresh(p)) return host.note(p, 'Tracker needs a GPS fix');
-      const seen = host.prey().filter((q) => q.ping).sort((a, b) => dist(p.pos, a.ping) - dist(p.pos, b.ping));
+    // `m.target` is the prey the hunter picked; without it, the nearest one.
+    tracker(p, m) {
+      const seen = host.prey().filter((q) => q.ping);
       if (!seen.length) return host.note(p, 'No prey has pinged yet');
+      let target = seen.find((q) => q.id === m.target);
+      if (!target) {
+        if (!host.fresh(p)) return host.note(p, 'Tracker needs a GPS fix');
+        target = seen.sort((a, b) => dist(p.pos, a.ping) - dist(p.pos, b.ping))[0];
+      }
       if (!take(p, 'tracker')) return;
-      p.fx.tracker = { target: seen[0].id, fromPing: G().pingNo };
-      host.note(p, 'Tracking ' + seen[0].name + ' for the next ' + ABILITIES.tracker.pings + ' pings', 'lime');
+      p.fx.tracker = { target: target.id, fromPing: G().pingNo };
+      host.note(p, 'Tracking ' + target.name + ' for the next ' + ABILITIES.tracker.pings + ' pings', 'lime');
     },
     radar(p) {
       if (take(p, 'radar')) p.fx.radarT = G().T + ABILITIES.radar.durationSec * 1000;
@@ -144,11 +149,34 @@ export function installPlay(host) {
     if (!a || !host.inMatch || g.paused) return;
     if (a.side !== p.role) return host.note(p, a.name + ' is a ' + a.side + ' ability');
     if (a.side === 'hunter' && g.phase !== 'live') return host.note(p, 'Locked until the head start ends');
-    USE[a.id](p);
+    USE[a.id](p, m);
+  });
+
+  // ---------------------------------------------------------- team map pins
+  // One pin per player; dropping another moves it.
+  host.on('mark', (p, m) => {
+    const g = G();
+    if (!host.inMatch || p.role === 'spectator') return;
+    g.marks = g.marks.filter((k) => k.by !== p.id);
+    const lat = Number(m.lat), lng = Number(m.lng);
+    if (m.clear || !isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+    g.marks.push({ id: ++g.evN, by: p.id, name: p.name, role: p.role, lat, lng, untilT: g.T + CONFIG.marks.lifeSec * 1000 });
+    host.evAll({ type: 'mark', name: p.name }, (q) => q !== p && q.role === p.role);
+  });
+  host.hooks.live.push(() => {
+    const g = G();
+    if (g.marks.some((k) => k.untilT <= g.T)) {
+      g.marks = g.marks.filter((k) => k.untilT > g.T);
+      host.dirty = true;
+    }
+  });
+  // A converted prey takes their pin off the prey map.
+  host.hooks.convert.push((q) => {
+    G().marks = G().marks.filter((k) => k.by !== q.id);
   });
 
   // ---------------------------------------------------------- chat
-  const channelOf = (p, ch) => (ch === 'all' || !host.inMatch ? 'all' : p.role);
+  const channelOf = (p, ch) => (ch === 'all' || !host.inMatch || p.role === 'spectator' ? 'all' : p.role);
 
   host.on('chat', (p, m) => {
     const g = G();
@@ -172,7 +200,7 @@ export function installPlay(host) {
   const sendHistory = (p) => {
     const g = G();
     host.to(p, { k: 'chathist', ch: 'all', list: g.chat.all });
-    host.to(p, { k: 'chathist', ch: 'team', list: host.inMatch ? g.chat[p.role] : [] });
+    host.to(p, { k: 'chathist', ch: 'team', list: (host.inMatch && g.chat[p.role]) || [] });
   };
   host.hooks.hello.push(sendHistory);
   host.hooks.convert.push((q) => sendHistory(q));   // joins the hunter channel
@@ -200,6 +228,18 @@ export function installPlay(host) {
       tracker: trTarget && trTarget.role === 'prey' ? { name: trTarget.name, left: tr.fromPing + ABILITIES.tracker.pings - g.pingNo } : null,
       decoys: g.decoys.filter((d) => d.owner === p.id).map((d) => ({ id: d.id, lat: d.lat, lng: d.lng, left: d.left }))
     };
+
+    // Team map pins: each side sees its own, spectators see all.
+    v.marks = g.marks.filter((k) => p.role === 'spectator' || k.role === p.role)
+      .map((k) => ({ id: k.id, name: k.name, role: k.role, lat: k.lat, lng: k.lng, untilT: k.untilT, mine: k.by === p.id }));
+
+    if (p.role === 'spectator') {
+      // Spectators see everyone live. They cannot act, chat to a team or talk.
+      for (const q of host.active()) {
+        if (q.pos) v.live.push({ id: q.id, name: q.name, kind: 'spec', role: q.role, lat: q.pos.lat, lng: q.pos.lng, stale: !host.fresh(q, now) });
+      }
+      return;
+    }
 
     if (p.role === 'hunter') {
       // Prey: last ping only (plus any decoys, which look identical).

@@ -6,6 +6,7 @@ import { store, uid, makeCode, showCode } from './util.js';
 import { cue } from './sound.js';
 import { app } from './state.js';
 import { HostNet, ClientNet, LocalLink } from './net.js';
+import './diag.js';
 import { Host } from './host.js';
 import { Session } from './client.js';
 import { showScreen, setLayer, render, toast } from './ui/core.js';
@@ -22,6 +23,11 @@ import './ui/alerts.js';
 import './ui/net.js';
 import './ui/zone.js';
 import './ui/safety.js';
+import './ui/extras.js';
+import './ui/replay.js';
+import './practice.js';
+import './tiles.js';
+import { i18n } from './i18n.js';
 import './resume.js';
 import './voice.js';
 import { installPlay } from './host-play.js';
@@ -52,6 +58,7 @@ if (params.get('sim')) {
   app.geo.simulate(isFinite(lat) && isFinite(lng) ? lat : 51.5073, isFinite(lat) && isFinite(lng) ? lng : -0.1657);
 }
 app.geo.on('status', render);
+app.bus.on('mapclick', (p) => app.sim && !app.practice && app.geo.simulate(p.lat, p.lng));
 
 function myToken() {
   let t = store.get(TOKEN_KEY, null, sessionStorage);
@@ -81,6 +88,7 @@ function route() {
     if (app.ui.layer && app.ui.layer !== 'admin') setLayer(null);
     showScreen('results');
   } else {
+    if (s.me.role === 'spectator') app.ui.mapOpen = true;   // nothing to reveal to a spectator
     showScreen(app.ui.mapOpen ? 'game' : 'reveal');
   }
 }
@@ -102,6 +110,7 @@ function bind(session) {
   session.on('reject', (reason) => {
     const why = {
       'in-progress': 'That match has already started',
+      'no-watch': 'This host does not allow spectators',
       full: 'That lobby is full',
       kicked: 'The host removed you from that lobby',
       version: 'Your app is out of date. Reload the page and try again.',
@@ -156,26 +165,33 @@ async function hostGame(name, saved = null) {
       }
     }
   }
+  startLocal({ code, net, saved, name });
+  if (saved) app.ui.mapOpen = saved.phase !== 'lobby';
+  store.set(SESSION_KEY, { code, host: true, name }, sessionStorage);
+  app.bus.emit('joined', { code, host: true, name });
+}
+
+// The host game plus this phone's own player, wired together in-process.
+// Also used by practice rounds (js/practice.js), which have no network.
+function startLocal({ code, net, saved = null, name }) {
   const local = new LocalLink(net);
   const host = new Host({ code, net, local, saved });
   for (const install of app.hostFeatures) install(host);
   app.net = net;
   app.host = host;
   const session = new Session({ link: local, token: myToken(), name, isHost: true, geo: app.geo });
-  if (saved) app.ui.mapOpen = saved.phase !== 'lobby';
   bind(session);
   host.addLocal(myToken(), name);
-  store.set(SESSION_KEY, { code, host: true, name }, sessionStorage);
-  app.bus.emit('joined', { code, host: true, name });
+  return host;
 }
 
 // ---- join a lobby ----
-function joinGame(name, code, rejoin = false) {
+function joinGame(name, code, rejoin = false, opts = {}) {
   if (app.session) return;
-  app.geo.start();
+  if (!opts.watch) app.geo.start();        // spectators are never asked for their location
   const net = new ClientNet(code);
   app.net = net;
-  const session = new Session({ link: net, token: myToken(), name, isHost: false, geo: app.geo });
+  const session = new Session({ link: net, token: myToken(), name, isHost: false, geo: app.geo, watch: !!opts.watch });
   if (rejoin) app.ui.mapOpen = true;
   bind(session);
   toast(rejoin ? 'Rejoining ' + showCode(code) + '…' : 'Joining ' + showCode(code) + '…', '', 1500);
@@ -199,7 +215,7 @@ function leave() {
   if (!app.session.isHost) setTimeout(cleanup, 150);
 }
 
-Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup });
+Object.assign(app.go, { host: hostGame, join: joinGame, leave, route, cleanup, startLocal });
 
 // ---- keep the screen awake during a match ----
 let wakeLock = null;
@@ -224,6 +240,7 @@ if ('serviceWorker' in navigator && !params.has('nosw') && (location.protocol ==
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
+app.i18n = i18n;
 window.CH = app;   // console access for debugging and tests
 route();
 render();

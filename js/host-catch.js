@@ -114,7 +114,7 @@ export function installCatch(host) {
           d: r.inRange && r.d != null ? Math.round(r.d) : p.pos && q.ping ? Math.round(dist(p.pos, q.ping)) : null
         };
       });
-    } else {
+    } else if (p.role === 'prey') {
       const by = p.tag ? g.players[p.tag.by] : null;
       if (by && by.pos && p.pos) {
         v.me.tag = { key: by.id + ':' + p.tag.T, by: by.name, d: Math.round(dist(by.pos, p.pos)) };

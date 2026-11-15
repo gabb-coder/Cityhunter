@@ -35,7 +35,7 @@ export function installAdmin(host) {
     },
     role(m) {
       const q = G().players[m.id];
-      if (!q || !host.inMatch || q.dropped) return;
+      if (!q || !host.inMatch || q.dropped || q.role === 'spectator') return;
       if (q.role === 'prey') {
         host.convert(q, null, 'admin');
         host.checkEnd();

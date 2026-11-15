@@ -32,13 +32,14 @@ function matchFields() {
     tag: null, selfTag: false,
     lock: { wrong: 0, untilT: 0 },
     hold: null, penaltyT: 0, flags: { jumps: 0, lastAt: 0 },
+    path: [], late: false,
     ev: []
   };
 }
 
 function newGame(code) {
   return {
-    v: 3, code,
+    v: 4, code,
     phase: 'lobby',               // lobby | headstart | live | ended
     mode: 'DEAD_RECKONING',
     rules: { ...MODES.DEAD_RECKONING.rules },
@@ -47,7 +48,7 @@ function newGame(code) {
     paused: false, pauseReason: null,
     zone: null, zoneCenter: null, lock: null, help: null,
     players: {}, order: [], hostPid: null, hunterStack: [],
-    decoys: [], chat: { all: [], prey: [], hunter: [] },
+    decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [] },
     evN: 0, chatN: 0,
     lastCatch: null, result: null
   };
@@ -71,6 +72,7 @@ export class Host {
     net.on('down', (cid) => this.linkDown(cid));
 
     this.coreHandlers();
+    this.hooks.hello.push((p) => this.sendRoutes(p));   // joined after the match ended
     this.timer = setInterval(() => this.tick(), 250);
   }
 
@@ -84,8 +86,12 @@ export class Host {
   all() {
     return this.G.order.map((id) => this.G.players[id]);
   }
+  // Everyone taking part (spectators only watch).
+  players() {
+    return this.all().filter((p) => p.role !== 'spectator');
+  }
   active() {
-    return this.all().filter((p) => !p.dropped);
+    return this.players().filter((p) => !p.dropped);
   }
   prey() {
     return this.active().filter((p) => p.role === 'prey');
@@ -107,8 +113,24 @@ export class Host {
   zoneNow() {
     const z = this.G.zone;
     if (!z) return null;
-    const lock = this.G.lock && this.G.lock.untilT > this.G.T ? this.G.lock : null;
-    return { lat: z.lat, lng: z.lng, r: Math.round(z.r * (lock ? lock.factor : 1)), base: z.r, lockT: lock ? lock.untilT : 0 };
+    const G = this.G;
+    const lock = G.lock && G.lock.untilT > G.T ? G.lock : null;
+    const out = { lat: z.lat, lng: z.lng, base: z.r, lockT: lock ? lock.untilT : 0 };
+    // Shrinking zone: closes in steadily between two points of the match.
+    let shrink = 1;
+    const to = G.rules.zoneShrinkTo || 1;
+    if (to < 1) {
+      const live = G.endT - G.headT;
+      const a = G.headT + live * CONFIG.zone.shrinkStartFrac;
+      const b = G.headT + live * CONFIG.zone.shrinkEndFrac;
+      const k = Math.max(0, Math.min(1, (G.T - a) / Math.max(1, b - a)));
+      shrink = 1 - (1 - to) * k;
+      out.final = Math.round(z.r * to);
+      out.shrinkStartT = Math.round(a);
+      out.shrinkEndT = Math.round(b);
+    }
+    out.r = Math.round(z.r * shrink * (lock ? lock.factor : 1));
+    return out;
   }
 
   to(p, msg) {
@@ -198,9 +220,25 @@ export class Host {
       }
       p.dropped = false;
     } else {
-      if (G.phase !== 'lobby') return reject('in-progress');
-      if (G.order.length >= CONFIG.lobby.maxPlayers) return reject('full');
+      const inMatch = this.inMatch;
+      const watch = !!msg.watch;
+      if (watch && !CONFIG.late.allowSpectators) return reject('no-watch');
+      if (!watch && inMatch && !CONFIG.late.joinAsHunter) return reject('in-progress');
+      if (G.order.length >= CONFIG.lobby.maxPlayers + (watch ? 8 : 0)) return reject('full');
       p = this.newPlayer(token, name);
+      if (watch) {
+        p.role = 'spectator';
+        p.startRole = 'spectator';
+        p.ready = true;
+      } else if (inMatch) {
+        // Arriving after the start: straight into the hunters.
+        p.role = 'hunter';
+        p.startRole = 'hunter';
+        p.late = true;
+        p.gc = ECONOMY.startingGC;
+        const boss = G.players[G.hostPid];
+        if (boss) this.note(boss, p.name + ' joined late as a hunter');
+      }
     }
     p.cid = cid;
     p.peer = peerId || null;
@@ -239,6 +277,22 @@ export class Host {
     if (msg.k !== 'pos' && msg.k !== 'hb') this.dirty = true;
   }
 
+  // Route point: [lat, lng, 0 prey | 1 hunter, seconds of live play].
+  recordRoute(p) {
+    const R = CONFIG.replay;
+    const path = p.path;
+    const last = path[path.length - 1];
+    const role = p.role === 'hunter' ? 1 : 0;
+    if (last && last[2] === role) {
+      const dLat = (p.pos.lat - last[0]) * 111320;
+      const dLng = (p.pos.lng - last[1]) * 111320 * Math.cos((p.pos.lat * Math.PI) / 180);
+      if (dLat * dLat + dLng * dLng < R.minMoveM * R.minMoveM) return;
+    }
+    path.push([+p.pos.lat.toFixed(5), +p.pos.lng.toFixed(5), role, Math.round(this.liveSec())]);
+    // Too long: keep the ends and every other point in between.
+    if (path.length > R.maxPoints) p.path = path.filter((pt, i) => i === 0 || i === path.length - 1 || i % 2 === 0);
+  }
+
   removePlayer(p, reason) {
     const G = this.G;
     if (reason) this.to(p, { k: 'bye', reason });
@@ -259,7 +313,7 @@ export class Host {
     if (p.role === 'prey' && this.inMatch) this.convert(p, null, why);
     p.dropped = true;
     p.tag = null;
-    this.evAll({ type: 'toast', text: p.name + (why === 'kicked' ? ' was removed' : ' is out of the match') }, (q) => q !== p);
+    if (p.role !== 'spectator') this.evAll({ type: 'toast', text: p.name + (why === 'kicked' ? ' was removed' : ' is out of the match') }, (q) => q !== p);
     this.checkEnd();
   }
 
@@ -273,7 +327,7 @@ export class Host {
     });
 
     this.on('pos', (p, m) => {
-      if (!this.inMatch) return;
+      if (!this.inMatch || p.role === 'spectator') return;
       const lat = Number(m.lat), lng = Number(m.lng);
       if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
       const next = { lat, lng, acc: Math.max(1, Math.min(5000, Number(m.acc) || 50)), hdg: m.hdg != null && isFinite(m.hdg) ? Number(m.hdg) : null };
@@ -281,6 +335,7 @@ export class Host {
       for (const fn of this.hooks.pos) fn(p, next, now);
       p.pos = next;
       p.posAt = now;
+      this.recordRoute(p);
     });
 
     this.on('ready', lobbyOnly((p, m) => {
@@ -313,7 +368,7 @@ export class Host {
 
     this.on('role', hostOnly(lobbyOnly((p, m) => {
       const q = this.G.players[m.id];
-      if (q) this.setLobbyRole(q, q.role === 'hunter' ? 'prey' : 'hunter');
+      if (q && q.role !== 'spectator') this.setLobbyRole(q, q.role === 'hunter' ? 'prey' : 'hunter');
     })));
 
     this.on('start', hostOnly(lobbyOnly((p, m) => this.start(p, m.center))));
@@ -343,7 +398,7 @@ export class Host {
 
   start(p, center) {
     const G = this.G;
-    const list = this.all();
+    const list = this.players();
     const nHunters = list.filter((q) => q.role === 'hunter').length;
     if (list.length < CONFIG.lobby.minPlayers) return this.note(p, 'You need at least ' + CONFIG.lobby.minPlayers + ' players');
     if (!nHunters || nHunters === list.length) return this.note(p, 'You need at least one hunter and one prey');
@@ -364,6 +419,7 @@ export class Host {
     G.lock = null;
     G.help = null;
     G.decoys = [];
+    G.marks = [];
     G.lastCatch = null;
     G.result = null;
     G.chat.prey = [];
@@ -372,10 +428,11 @@ export class Host {
     // One random PIN per prey per match. It only ever travels inside that
     // prey's own snapshot.
     const used = new Set();
-    for (const q of list) {
+    for (const q of this.all()) {
       Object.assign(q, matchFields());
       q.dropped = false;
       q.startRole = q.role;
+      if (q.role === 'spectator') continue;
       q.gc = ECONOMY.startingGC;
       if (q.role === 'prey') q.pin = this.newPin(used);
     }
@@ -455,7 +512,7 @@ export class Host {
       }
     }
     const byId = (id) => (G.players[id] ? G.players[id].name : null);
-    const board = this.all().map((q) => ({
+    const board = this.players().map((q) => ({
       id: q.id, name: q.name, startRole: q.startRole, role: q.role,
       earned: q.earned, gc: q.gc, catches: q.catches, pings: q.pings,
       caughtL: q.caughtT == null ? null : Math.round(this.liveSec(q.caughtT)),
@@ -478,6 +535,25 @@ export class Host {
     for (const q of this.all()) q.tag = null;
     for (const fn of this.hooks.end) fn();
     this.dirty = true;
+    this.sendRoutes();
+  }
+
+  // Everyone's recorded route, sent once when the match is over (it is too
+  // big to ride in every snapshot).
+  routes() {
+    const G = this.G;
+    return {
+      k: 'routes', round: G.round,
+      list: this.players().filter((q) => q.path.length > 1).map((q) => ({
+        id: q.id, name: q.name, pts: q.path, caughtAt: q.caughtAt,
+        caughtL: q.caughtT == null ? null : Math.round(this.liveSec(q.caughtT))
+      }))
+    };
+  }
+  sendRoutes(only) {
+    if (this.G.phase !== 'ended') return;
+    const msg = this.routes();
+    for (const p of only ? [only] : this.all()) this.to(p, msg);
   }
 
   pause(reason) {

@@ -133,6 +133,37 @@ export class Geo extends Emitter {
     if (this.simulated && !this.blocked && this.fix) this._fix(this.fix.lat, this.fix.lng, this.fix.acc, this.fix.hdg);
   }
 
+  // Walk the simulated position toward a point (practice rounds).
+  walkTo(target, speedMps = 4) {
+    clearInterval(this.walkTimer);
+    if (!this.fix) return this.simulate(target.lat, target.lng);
+    const step = 0.5;
+    this.walkTimer = setInterval(() => {
+      const here = this.fix;
+      const d = dist(here, target);
+      const move = speedMps * step;
+      if (d <= move) {
+        clearInterval(this.walkTimer);
+        return this.simulate(target.lat, target.lng);
+      }
+      const k = move / d;
+      this.simulate(here.lat + (target.lat - here.lat) * k, here.lng + (target.lng - here.lng) * k);
+    }, step * 1000);
+  }
+
+  // Back to the phone's real GPS.
+  unsimulate() {
+    clearInterval(this.walkTimer);
+    if (!this.simulated) return;
+    this.simulated = false;
+    this.fix = null;
+    this.lastMove = null;
+    if (this.timer) {
+      this.stop();
+      this.start();
+    }
+  }
+
   // ---- desk testing (?sim=lat,lng): tap the map to walk there ----
   simulate(lat, lng, acc = 5) {
     this.simulated = true;
