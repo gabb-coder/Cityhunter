@@ -5,6 +5,7 @@ import { icon } from '../icons.js';
 import { CONFIG, MODES, RULE_OPTIONS, RULE_LABELS } from '../config.js';
 import { app, snap } from '../state.js';
 import { tr } from '../i18n.js';
+import { setupButton } from './history.js';
 import { act, onRender, screen, toast, openModal, closeModal, confirmModal, roleName } from './core.js';
 import { zoneCard } from './zone.js';
 import { joinUrl } from './safety.js';
@@ -101,6 +102,7 @@ function renderLobby() {
         Object.values(MODES).map((m) => modeCard(m, m.id === s.mode, host)).join('') +
       '</div></section>' +
       '<section class="block"><h2 class="label">Rules</h2><div class="card rows">' + rules + stepper + '</div>' +
+        (host ? setupButton(s) : '') +
         '</section>' +
       zoneCard(s, host) +
       '<section class="block"><div class="block-head"><h2 class="label">Players · ' + players.length + '</h2>' +

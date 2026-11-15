@@ -191,3 +191,71 @@
 
 /* Map buttons when two alert cards leave no room: help, menu and recenter stay. */
 #map-btns.tight [data-act='pin'], #map-btns.tight [data-act='theme'], #map-btns.tight [data-act='admin'] { display: none; }
+
+/* =====================================================================
+   v2.3: update bar, how to play, privacy, awards, past matches, last setup
+   ===================================================================== */
+
+/* ---------- "a new version is ready" ---------- */
+#update-bar {
+  position: absolute; left: 12px; right: 12px; z-index: 60;
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+  padding: 10px 10px 10px 14px; border-radius: 14px;
+  background: var(--surface); border: 2px solid var(--lime-bd); box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 10px;
+}
+#update-bar[hidden] { display: none; }
+[data-theme='dark'] #update-bar { border-color: var(--lime); }
+.update-text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: var(--fw-semi); line-height: 1.3; }
+.update-text svg { flex-shrink: 0; color: var(--lime-ink); }
+
+/* ---------- home ---------- */
+.home-links { display: flex; flex-wrap: wrap; }
+.home-links > * { flex: 1 1 40%; }
+.home-links > *:last-child { flex-basis: 100%; }
+.home-links .report-link { padding: 0 8px; }
+
+/* ---------- how to play ---------- */
+.how { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.how h2 { font-size: 28px; }
+.how-ico { width: 64px; height: 64px; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: var(--inset); border: 2px solid currentColor; }
+.how-ico.prey { color: var(--prey-ink); }
+.how-ico.hunter { color: var(--hunter-ink); }
+.how-ico.lime { color: var(--lime-ink); }
+.how-n { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); }
+.how-list { display: flex; flex-direction: column; gap: 10px; font-size: 16px; line-height: 1.45; color: var(--soft); list-style: disc; padding-left: 20px; }
+.how-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex-shrink: 0; }
+.modal-card:has(.how) { overflow: hidden; }
+
+/* ---------- privacy ---------- */
+.privacy { display: flex; flex-direction: column; gap: 16px; }
+.privacy section { display: flex; flex-direction: column; gap: 6px; }
+.privacy h3 { font-size: 16px; font-weight: var(--fw-bold); }
+.privacy p { font-size: 15px; line-height: 1.5; color: var(--soft); }
+
+/* ---------- awards ---------- */
+.awards { display: flex; flex-direction: column; gap: 8px; }
+.award { min-height: 60px; padding: 8px 12px; border-radius: 14px; display: flex; align-items: center; gap: 12px; }
+.award.you { border: 2px solid var(--lime-bd); background: var(--lime-tint); }
+[data-theme='dark'] .award.you { border-color: var(--lime); }
+.award-ico { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: var(--inset); display: flex; align-items: center; justify-content: center; }
+.award-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.award-title { font-size: var(--fs-label); font-weight: var(--fw-semi); color: var(--muted); }
+.award-name { font-size: 15px; letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.award-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; max-width: 46%; }
+.award-val { font-size: 18px; color: var(--lime-ink); }
+
+/* ---------- past matches ---------- */
+.past-list { display: flex; flex-direction: column; gap: 8px; }
+.past { padding: 10px 12px; border-radius: 14px; }
+.past-main { display: flex; flex-direction: column; gap: 4px; }
+.past-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.past-top strong { font-weight: var(--fw-bold); font-size: 16px; }
+.past-date { font-size: 12px; color: var(--muted); }
+.past-line { display: flex; flex-wrap: wrap; column-gap: 6px; }
+.past-line span + span::before { content: '\00B7 '; color: var(--muted); }
+
+/* ---------- lobby: last setup ---------- */
+.setup-use { width: 100%; min-height: 56px; justify-content: flex-start; gap: 12px; background: transparent; text-align: left; }
+.setup-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.setup-what { font-size: 13px; font-weight: var(--fw-med); }
