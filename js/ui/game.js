@@ -87,6 +87,10 @@ function updateMap() {
   $('#s-game').style.setProperty('--sheet-h', map.pad.bottom + 'px');
 
   map.setZone(s.zone);
+  // No-go areas, and where a shrinking drawn zone will end up.
+  const shapes = (s.nogo || []).map((poly, i) => ({ id: 'ng' + i, kind: 'nogo', poly, label: 'NO-GO' }));
+  if (s.zone && s.zone.finalPoly && s.zone.scale > (s.rules.zoneShrinkTo || 1) + 0.01) shapes.push({ id: 'final', kind: 'final', poly: s.zone.finalPoly, label: 'Final zone' });
+  map.setShapes(shapes);
   if (fix && me.role !== 'spectator') map.setMe({ lat: fix.lat, lng: fix.lng, acc: fix.acc, hdg: app.geo.heading(), role: me.role, ghost: !!me.fx.ghost, stale: app.geo.lost });
   else if (me.role === 'spectator') map.setMe(null);
 
@@ -156,7 +160,12 @@ function tickZoneLine(s, T) {
   const z = s.zone;
   const on = !!z && !!z.final && s.phase === 'live' && T >= z.shrinkStartT && T < z.shrinkEndT;
   if (el.hidden === on) el.hidden = !on;
-  if (on) setText($('#hud-zone-text'), 'Zone closing in · ' + metres(z.r) + ' now, ' + metres(z.final) + ' in ' + clock((z.shrinkEndT - T) / 1000));
+  if (!on) return;
+  const left = clock((z.shrinkEndT - T) / 1000);
+  // A circle is described by its radius, a drawn zone by how much of it is left.
+  setText($('#hud-zone-text'), z.poly
+    ? 'Zone closing in · ' + Math.round(z.scale * 100) + '% of full size now, ' + Math.round((s.rules.zoneShrinkTo || 1) * 100) + '% in ' + left
+    : 'Zone closing in · ' + metres(z.r) + ' now, ' + metres(z.final) + ' in ' + left);
 }
 
 function tickHud() {

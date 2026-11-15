@@ -41,6 +41,8 @@ export class MapView {
     this.tiles = null;
     this.zone = null;
     this.zoneKey = '';
+    this.shapes = [];
+    this.shapesKey = '';
     this.me = null;
     this.items = new Map();     // id -> { key, layers[], circle, tag, label }
     this.follow = true;
@@ -68,6 +70,7 @@ export class MapView {
     };
     // Rebuild everything in the new colours.
     this.zoneKey = '';
+    this.shapesKey = '';
     for (const it of this.items.values()) it.layers.forEach((l) => l.remove());
     this.items.clear();
     if (this.me) { this.me.layers.forEach((l) => l.remove()); this.me = null; }
@@ -78,18 +81,45 @@ export class MapView {
   }
 
   // ---- play zone: everything outside is dimmed, the edge is dashed ----
+  // A circle, or the shape the host drew (z.poly).
   setZone(z) {
-    const key = z ? [z.lat, z.lng, z.r].join(',') : '';
+    const key = z ? [z.lat, z.lng, z.r, z.poly ? z.poly.join(';') : ''].join(',') : '';
     if (key === this.zoneKey) return;
     this.zoneKey = key;
     if (this.zone) this.zone.forEach((l) => l.remove());
     this.zone = null;
     if (!z) return;
     const world = [[-89, -360], [89, -360], [89, 360], [-89, 360]];
-    const mask = L.polygon([world, ring(z, z.r)], { stroke: false, fillColor: '#0A0C0B', fillOpacity: this.c.mask, interactive: false });
-    const edge = L.circle([z.lat, z.lng], { radius: z.r, color: this.c.edge, weight: this.c.sun ? 3 : 2.5, dashArray: '10 8', fill: false, interactive: false });
+    const line = { color: this.c.edge, weight: this.c.sun ? 3 : 2.5, dashArray: '10 8', fill: false, interactive: false };
+    const mask = L.polygon([world, z.poly || ring(z, z.r)], { stroke: false, fillColor: '#0A0C0B', fillOpacity: this.c.mask, interactive: false });
+    const edge = z.poly ? L.polygon(z.poly, line) : L.circle([z.lat, z.lng], { radius: z.r, ...line });
     this.zone = [mask.addTo(this.map), edge.addTo(this.map)];
     if (!this.framed) this.frame(z);
+  }
+
+  // Outlined areas that are not the zone itself:
+  //   kind 'nogo'   a no-go area (hunter colour, hatched look, labelled)
+  //   kind 'final'  where a shrinking drawn zone will end up
+  // list: [{ id, kind, poly, label }]
+  setShapes(list) {
+    const key = list.map((s) => s.id + ':' + s.kind + ':' + s.poly.join(';')).join('|');
+    if (key === this.shapesKey) return;
+    this.shapesKey = key;
+    this.shapes.forEach((l) => l.remove());
+    this.shapes = [];
+    for (const s of list) {
+      const nogo = s.kind === 'nogo';
+      const col = nogo ? this.c.hunter : this.c.edge;
+      this.shapes.push(L.polygon(s.poly, {
+        color: nogo ? this.c.hunterInk : col, weight: nogo ? 2.5 : 1.5, dashArray: nogo ? '4 6' : '7 6',
+        fillColor: col, fillOpacity: nogo ? 0.28 : 0.1, interactive: false
+      }).addTo(this.map));
+      if (s.label) {
+        const lat = s.poly.reduce((a, p) => a + p[0], 0) / s.poly.length;
+        const lng = s.poly.reduce((a, p) => a + p[1], 0) / s.poly.length;
+        this.shapes.push(L.marker([lat, lng], { interactive: false, keyboard: false, icon: tagIcon(s.label, (nogo ? 'hunter strong' : 'lime') + ' small centred') }).addTo(this.map));
+      }
+    }
   }
 
   frame(z) {
@@ -221,7 +251,8 @@ export function makeTileLayer() {
 
 // A small non-interactive map as plain HTML (tile images + a circle), so it
 // can live inside screens that are re-rendered as strings.
-export function staticMap(center, radiusM, height = 150) {
+// opts.poly: a drawn zone instead of the circle. opts.nogo: no-go areas.
+export function staticMap(center, radiusM, height = 150, opts = {}) {
   const t = tileConfig();
   const latRad = (center.lat * Math.PI) / 180;
   const wantMpp = (2 * radiusM) / (0.72 * height);            // metres per pixel that fits the circle
@@ -241,10 +272,25 @@ export function staticMap(center, radiusM, height = 150) {
       tiles += '<img alt="" src="' + url + '" width="256" height="256" style="left:' + Math.round(tx * 256 - cx) + 'px;top:' + Math.round(ty * 256 - cy) + 'px">';
     }
   }
+  // Drawn shapes go in as an SVG laid over the tiles, in the same pixels.
+  const px = (p) => {
+    const x = ((p[1] + 180) / 360) * n * 256 - cx;
+    const y = ((1 - Math.asinh(Math.tan((p[0] * Math.PI) / 180)) / Math.PI) / 2) * n * 256 - cy;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  };
+  const W = 1200;
+  const path = (poly) => 'M' + poly.map(px).join('L') + 'Z';
+  const shapes = (opts.poly || (opts.nogo && opts.nogo.length))
+    ? '<svg class="smap-shapes" width="' + W + '" height="' + W + '" viewBox="' + (-W / 2) + ' ' + (-W / 2) + ' ' + W + ' ' + W + '" aria-hidden="true">' +
+        (opts.poly ? '<path class="smap-mask" fill-rule="evenodd" d="M' + (-W / 2) + ',' + (-W / 2) + 'h' + W + 'v' + W + 'h' + (-W) + 'Z' + path(opts.poly) + '"/><path class="smap-poly" d="' + path(opts.poly) + '"/>' : '') +
+        (opts.nogo || []).map((a) => '<path class="smap-nogo" d="' + path(a) + '"/>').join('') +
+      '</svg>'
+    : '';
   return '<div class="smap" style="height:' + height + 'px" role="img" aria-label="Map of the play zone">' +
     '<div class="smap-tiles" style="filter:' + (t.filter || 'none') + '">' + tiles + '</div>' +
-    '<span class="smap-zone" style="width:' + d.toFixed(0) + 'px;height:' + d.toFixed(0) + 'px"></span>' +
-    '<span class="smap-dot"></span>' +
+    (opts.poly ? '' : '<span class="smap-zone" style="width:' + d.toFixed(0) + 'px;height:' + d.toFixed(0) + 'px"></span>') +
+    shapes +
+    (opts.poly ? '' : '<span class="smap-dot"></span>') +
     '<span class="smap-attr">' + t.attribution.replace(/<[^>]+>/g, '').replace('&copy;', '©') + '</span>' +
   '</div>';
 }

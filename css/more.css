@@ -259,3 +259,42 @@
 .setup-use { width: 100%; min-height: 56px; justify-content: flex-start; gap: 12px; background: transparent; text-align: left; }
 .setup-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .setup-what { font-size: 13px; font-weight: var(--fw-med); }
+
+/* ---------- scan to catch ---------- */
+.pin-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.scan-btn { gap: 6px; border-color: var(--hunter-ink); color: var(--hunter-ink); background: transparent; }
+.scan-btn:disabled { opacity: 0.45; }
+.scan-view { position: relative; align-self: center; width: min(100%, 320px); aspect-ratio: 1; border-radius: 18px; overflow: hidden; background: #000; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-frame { position: absolute; inset: 14%; border: 3px solid var(--lime); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }
+.scan-status { text-align: center; min-height: 40px; color: var(--soft); }
+
+/* the prey's screen: PIN on top, code under it */
+.tagged-show { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.tagged-show .tagged-pin { margin-top: 0; width: 100%; }
+.tagged-qr { width: 168px; padding: 12px; border-radius: 16px; background: #FFFFFF; border: 3px solid #0A0C0B; }
+.tagged-qr svg { display: block; width: 100%; height: auto; }
+.tagged-pin span { height: 104px; font-size: min(68px, 17.5cqw); }
+@media (max-height: 700px) {
+  .tagged-show { margin-top: 12px; gap: 10px; }
+  .tagged-pin span { height: 72px; font-size: min(48px, 12.5cqw); }
+  .tagged-qr { width: 132px; padding: 8px; }
+  .tagged h1 br { display: none; }
+  .tagged h1 { font-size: min(30px, 8cqw); }
+}
+
+/* ---------- drawn zones and no-go areas ---------- */
+.smap-shapes { position: absolute; left: 50%; top: 50%; margin: -600px 0 0 -600px; pointer-events: none; }
+.smap-mask { fill: rgba(10, 12, 11, var(--zone-mask)); }
+.smap-poly { fill: none; stroke: var(--zone-edge); stroke-width: 2.5; stroke-dasharray: 8 6; }
+.smap-nogo { fill: var(--hunter); fill-opacity: 0.35; stroke: var(--hunter-ink); stroke-width: 2; stroke-dasharray: 4 5; }
+.zone-nogo-n { font-weight: var(--fw-semi); }
+.zone-tabs { margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.zone-tabs .tab { font-size: 14px; }
+.zone-edit-row { display: flex; gap: 8px; }
+.zone-edit-row .btn { flex: 1 1 0; padding: 0 8px; }
+.zone-edit-row .btn:disabled { opacity: 0.45; }
+.zone-count { text-align: center; margin-top: 8px; }
+.zone-cross[hidden] { display: none; }
+#zone-tools { min-height: 50px; }
+.map-tag.centred { top: -10px; }

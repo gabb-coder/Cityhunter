@@ -85,6 +85,7 @@ let lobbySetup = null;   // what the host's lobby looked like a moment ago
 // Only values the lobby can actually be set to count as a difference.
 const sameRules = (saved, now) => Object.keys(RULE_LABELS).every((k) => !RULE_OPTIONS[k].includes(saved[k]) || saved[k] === now[k]);
 const sameZone = (a, b) => (!a && !b) || (!!a && !!b && dist(a, b) < 5);
+const sameShapes = (saved, s) => JSON.stringify(saved.zoneShape || null) === JSON.stringify(s.zoneShape || null) && JSON.stringify(saved.nogo || []) === JSON.stringify(s.nogo || []);
 
 export function savedSetup() {
   const v = store.get(SETUP_KEY, null);
@@ -96,7 +97,7 @@ function offer(s) {
   const saved = savedSetup();
   if (!saved || !s.me.host) return null;
   const zone = usableZone(saved);
-  if (saved.mode === s.mode && sameRules(saved.rules, s.rules) && (!zone || sameZone(zone, s.zoneCenter))) return null;
+  if (saved.mode === s.mode && sameRules(saved.rules, s.rules) && (!zone || (sameZone(zone, s.zoneCenter) && sameShapes(saved, s)))) return null;
   return saved;
 }
 
@@ -125,7 +126,8 @@ act('setup-use', () => {
     if (RULE_OPTIONS[key].includes(saved.rules[key])) send({ rule: key, value: saved.rules[key] });
   }
   const zone = usableZone(saved);
-  if (zone) send({ zone });
+  if (zone && saved.zoneShape) send({ shape: saved.zoneShape, nogo: saved.nogo || [] });   // a drawn zone
+  else if (zone) send({ zone, shape: null, nogo: saved.nogo || [] });
   toast('Last setup applied', 'lime', 1800);
   closeModal();
 });
@@ -138,7 +140,7 @@ app.bus.on('session', (session) => {
     if (s.phase === 'ended') return record(s);
     if (!s.me.host || app.practice) return;
     if (s.phase === 'lobby') {
-      lobbySetup = { mode: s.mode, rules: { ...s.rules }, zoneCenter: s.zoneCenter || null };
+      lobbySetup = { mode: s.mode, rules: { ...s.rules }, zoneCenter: s.zoneCenter || null, zoneShape: s.zoneShape || null, nogo: s.nogo || [] };
     } else if (lobbySetup) {
       // The match just started: this is the setup to offer next time.
       store.set(SETUP_KEY, { ...lobbySetup, at: Date.now() });

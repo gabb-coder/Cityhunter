@@ -1,12 +1,12 @@
 // GPS signal lost (sheet + growing last-fix circle) and Outside the zone
 // (orange border, GET BACK IN countdown, direction to the nearest edge).
 
-import { $, esc, setHTML, setText, clock, dist, bearing, compass, metres } from '../util.js';
+import { $, esc, setHTML, setText, clock, compass, metres } from '../util.js';
 import { cue } from '../sound.js';
 import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app, snap } from '../state.js';
-import { offsetPoint } from '../map.js';
+import { zoneEdge } from '../geom.js';
 import { act, onRender, onTick, screen, render, openModal } from './core.js';
 import { mapItemHooks, bannerHooks } from './game.js';
 
@@ -122,8 +122,9 @@ function zoneState(s) {
   const z = s.zone;
   if (s.me.role === 'spectator') return { out: false };
   if (!z || !fix || app.geo.lost) return s.me.out && s.me.out.sinceT != null ? { out: true, d: null } : { out: false };
-  const d = dist(fix, z);
-  return { out: d > z.r, d: d - z.r, brg: bearing(fix, z), edge: offsetPoint(z, z.r, bearing(z, fix)) };
+  // Works for a circle and for a zone the host drew.
+  const e = zoneEdge(z, fix);
+  return { out: e.out, d: e.d, brg: e.brg, edge: e.edge };
 }
 
 function walkTime(m) {
@@ -196,6 +197,15 @@ function tickZone() {
   const sec = Math.max(0, Math.ceil(left));
   setText(el, Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'));
 }
+
+// Inside a no-go area: the most urgent line on the screen.
+let inNogo = false;
+bannerHooks.push((out, s) => {
+  const now = !!s.me.nogo;
+  if (now && !inNogo) cue('zone');
+  inNogo = now;
+  if (now) out.add(0, '<div class="banner hunter" role="alert">' + icon('warn', 20, 2.5) + '<span>You are in a no-go area. Leave it now.</span></div>');
+});
 
 // A hunter outside the zone: one line, the map stays clear.
 bannerHooks.push((out, s) => {

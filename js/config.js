@@ -9,8 +9,8 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.3.0',
-  protocol: 5,             // bump when host and client messages change shape
+  version: '2.4.0',
+  protocol: 6,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
   catch: {
@@ -38,7 +38,13 @@ export const CONFIG = {
     outGraceSec: 30,         // "GET BACK IN" countdown before live reveal
     shrinkStartFrac: 0.2,    // shrinking zone: starts this far into the match
     shrinkEndFrac: 0.85,     // ...and reaches its final size at this point
-    walkSpeedMps: 1.4        // used for the "about 30 s walking" estimate
+    walkSpeedMps: 1.4,       // used for the "about 30 s walking" estimate
+    // A zone the host draws on the map instead of a circle, and no-go areas.
+    maxCorners: 12,          // corners in one drawn shape
+    minAreaM2: 1500,         // a drawn zone smaller than this is refused
+    maxSpanM: 6000,          // ...and so is one wider than this
+    maxNoGo: 6,              // no-go areas per match
+    noGoTellHostSec: 20      // the host is told about a player who stays in one this long
   },
 
   // Pings and how they are drawn.
@@ -104,6 +110,13 @@ export const CONFIG = {
     minMoveM: 8,             // the host records a route point after this much movement
     maxPoints: 500,          // per player; older points are thinned out
     seconds: 9               // length of the animated replay
+  },
+
+  // Scan to catch: the hunter's camera reads the code on the prey's PIN screen.
+  scan: {
+    enabled: true,
+    everyMs: 160,            // how often a camera frame is checked
+    maxSidePx: 640           // frames are shrunk to this before decoding
   },
 
   // End-of-match awards.
