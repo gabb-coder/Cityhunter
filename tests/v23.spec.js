@@ -378,3 +378,221 @@ test('drawn zone and no-go area: the host taps them out, everyone sees them, and
   await expect(B.locator('#hud-zone')).toContainText('of full size now');
   expect(A.errors.concat(B.errors, C.errors)).toEqual([]);
 });
+
+// ---------------------------------------------------------------- relay
+const { URL: PAGE, ORIGIN: SITE } = require('./helpers');
+const relayStats = async () => (await fetch(SITE + '/__relay')).json();
+// Join as a phone that cannot open direct links: everything goes through the relay.
+async function joinRelayed(game, name, code, geo) {
+  const page = await game.player(name, geo, { url: PAGE + '&relayonly=1' });
+  await page.fill('#join-code', code);
+  await page.click('.join-btn');
+  await game.inLobby(page);
+  return page;
+}
+
+test('relay: a phone that cannot open a direct link plays a whole catch through the relay, and the relay cannot read it', async ({ game }) => {
+  const before = await relayStats();
+  const A = await game.host('GABRIEL', offset(150, 0));
+  const code = (await snap(A)).code;
+  const B = await joinRelayed(game, 'NOMAD', code, offset(8, 0));
+  const C = await game.join('VIPER', code, offset(0, 0));
+  expect(await B.evaluate(() => window.CH.net.state.via)).toBe('relay');
+  expect(await C.evaluate(() => window.CH.net.state.via)).toBe('direct');
+  await expect(B.locator('#toasts')).toContainText('Connected through the relay');
+  await expect.poll(async () => (await snap(A)).players.filter((p) => p.conn).length).toBe(3);
+  // The host console shows who is relayed.
+  await A.click('.topbar [data-act=admin]');
+  await expect(A.locator('.admin-player', { hasText: 'NOMAD' })).toContainText('through the relay');
+  await A.click('#s-admin [data-act=layer-close]');
+
+  // Lobby chat crosses the relay both ways.
+  await B.click('.lobby-chat');
+  await B.fill('#chat-input', 'on mobile data here');
+  await B.press('#chat-input', 'Enter');
+  await expect.poll(() => C.evaluate(() => window.CH.session.chat.all.map((m) => m.text))).toContain('on mobile data here');
+  await B.click('.chat-head [data-act=layer-close]');
+
+  // A match: NOMAD (relayed prey) is pinged, tagged and caught like anyone else.
+  await A.evaluate(() => {
+    const h = window.CH.host;
+    for (const p of h.all()) h.setLobbyRole(p, p.name === 'VIPER' ? 'hunter' : 'prey');
+    Object.assign(h.G.rules, { headStartSec: 2, pingSec: 6, matchSec: 600, zoneRadiusM: 400 });
+    h.dirty = true;
+  });
+  await expect.poll(async () => (await snap(B)).players.filter((p) => p.role === 'hunter').length).toBe(1);
+  await A.click('[data-act=start]');
+  for (const p of [A, B, C]) { await p.waitForSelector('#s-reveal:not([hidden]) [data-act=open-map]', { timeout: 15000 }); await p.click('[data-act=open-map]'); }
+  await live(B);
+  await expect.poll(async () => (await snap(C)).pings.some((p) => p.name === 'NOMAD'), { timeout: 20000 }).toBe(true);
+  await expect.poll(async () => (await snap(C)).targets.find((t) => t.name === 'NOMAD').inRange, { timeout: 20000 }).toBe(true);
+  const pin = (await snap(B)).me.pin;
+  expect(pin).toMatch(/^\d{4}$/);
+  await C.click('[data-act=catch-open]');
+  await B.waitForSelector('#s-tagged:not([hidden]) .tagged-pin', { timeout: 15000 });
+  await typePin(C, pin);
+  await C.waitForSelector('.catch-done');
+  await B.waitForSelector('#s-converted:not([hidden])', { timeout: 15000 });
+  expect((await snap(B)).me.role).toBe('hunter');
+
+  // The relay carried traffic, and none of it was readable.
+  const after = await relayStats();
+  expect(after.messages - before.messages).toBeGreaterThan(20);
+  expect(after.last).toMatch(/"t":"m"/);
+  for (const secret of ['NOMAD', 'snap', pin, 'lat']) expect(after.last).not.toContain(secret);
+
+  // The relay socket drops: the phone notices and gets back in on its own.
+  await B.click('[data-act=conv-go]');
+  await B.evaluate(() => window.CH.net.relay.sock.ws.close());
+  await expect.poll(() => B.evaluate(() => window.CH.net.state.status), { timeout: 30000 }).toBe('online');
+  const t = (await snap(B)).T;
+  await expect.poll(async () => (await snap(B)).T, { timeout: 30000 }).toBeGreaterThan(t + 2000);
+  expect((await snap(B)).me.role).toBe('hunter');
+  // Voice is direct-only: a relayed player is told instead of failing silently.
+  expect(await B.evaluate(() => window.CH.session.relayed)).toBe(true);
+  expect(A.errors.concat(B.errors, C.errors)).toEqual([]);
+});
+
+test('iPhone engine: two phones play a match through the relay', { tag: '@webkit' }, async ({ game }) => {
+  const A = await game.host('GABRIEL', offset(0, 0));
+  const code = (await snap(A)).code;
+  const B = await joinRelayed(game, 'VIPER', code, offset(8, 0));
+  await expect.poll(async () => (await snap(A)).players.length).toBe(2);
+  await A.evaluate(() => {
+    const h = window.CH.host;
+    for (const p of h.all()) h.setLobbyRole(p, p.name === 'VIPER' ? 'hunter' : 'prey');
+    Object.assign(h.G.rules, { headStartSec: 2, pingSec: 6, matchSec: 600, zoneRadiusM: 400 });
+    h.dirty = true;
+  });
+  await expect.poll(async () => (await snap(B)).me.role).toBe('hunter');
+  await A.click('[data-act=start]');
+  for (const p of [A, B]) { await p.waitForSelector('#s-reveal:not([hidden]) [data-act=open-map]', { timeout: 15000 }); await p.click('[data-act=open-map]'); }
+  await live(B);
+  await expect.poll(async () => ((await snap(B)).targets || []).some((t) => t.inRange), { timeout: 25000 }).toBe(true);
+  await B.click('[data-act=catch-open]');
+  await A.waitForSelector('#s-tagged:not([hidden]) .tagged-pin', { timeout: 15000 });
+  await typePin(B, (await snap(A)).me.pin);
+  await B.waitForSelector('#s-results:not([hidden]) .res-head', { timeout: 20000 });
+  await A.waitForSelector('#s-results:not([hidden]) .res-head', { timeout: 20000 });
+  expect((await snap(A)).result.winner).toBe('hunters');
+  expect(A.errors.concat(B.errors)).toEqual([]);
+});
+
+// ---------------------------------------------------------------- host handover
+const { gameT } = require('./helpers');
+
+test('host handover: the host vanishes, the deputy carries the match on, and the old host comes back as a player', async ({ game }) => {
+  test.slow();
+  // GABRIEL hosts (prey, far away). NOMAD (prey) joined first, so is the deputy. VIPER hunts, 8 m from NOMAD.
+  const [A, B, C] = await game.match(['GABRIEL', 'NOMAD', 'VIPER'], ['VIPER'], { headStartSec: 2, pingSec: 6, matchSec: 600, zoneRadiusM: 400 }, [offset(150, 0), offset(8, 0), offset(0, 0)]);
+  await live(C);
+  for (const p of [B, C]) await config(p, { net: { handoverAfterSec: 5 } });
+  await expect.poll(async () => ((await snap(C)).deputy || {}).name).toBe('NOMAD');
+  await expect.poll(() => B.evaluate(() => window.CH.session.backup && window.CH.session.backup.G.phase)).toBe('live');
+
+  // The deputy's backup holds nothing a player may not see.
+  const kept = await B.evaluate(() => Object.values(window.CH.session.backup.G.players).map((p) => ({ pin: p.pin, pos: p.pos, ping: p.ping, path: p.path.length, role: p.role, gc: p.gc })));
+  expect(kept.every((p) => p.pin === null && p.pos === null && p.ping === null && p.path === 0)).toBe(true);
+  expect(kept.map((p) => p.role).sort()).toEqual(['hunter', 'prey', 'prey']);
+  const oldPin = (await snap(B)).me.pin;
+  const T0 = await gameT(C);
+
+  // The host's phone is gone.
+  await A.goto('about:blank');
+  await C.waitForSelector('#net:not([hidden]) #net-title', { timeout: 30000 });
+  await expect(C.locator('.net-facts')).toContainText('NOMAD takes over as host', { timeout: 20000 });
+
+  // The deputy becomes the host; the third phone finds it without doing anything.
+  await expect.poll(() => B.evaluate(() => !!window.CH.host), { timeout: 60000 }).toBe(true);
+  await expect(B.locator('#toasts')).toContainText('now hosting');
+  await expect(C.locator('#net')).toBeHidden({ timeout: 60000 });
+  await expect.poll(async () => ((await snap(C)).players.find((p) => p.host) || {}).name, { timeout: 30000 }).toBe('NOMAD');
+  await expect(C.locator('#toasts')).toContainText('NOMAD is now the host');
+  const sc = await snap(C);
+  expect(sc.phase).toBe('live');
+  expect(sc.me.role).toBe('hunter');
+  expect(sc.players.find((p) => p.name === 'GABRIEL').conn).toBe(false);     // the old host's spot is held like anyone's
+  expect(await gameT(C)).toBeGreaterThan(T0 - 6000);                         // the clock carried on, it did not restart
+  expect((await snap(B)).me.host).toBe(true);
+  expect((await snap(B)).me.role).toBe('prey');
+
+  // Prey got fresh PINs, and the match is fully playable: VIPER catches NOMAD (the new host).
+  const newPin = (await snap(B)).me.pin;
+  expect(newPin).toMatch(/^\d{4}$/);
+  await expect.poll(async () => ((await snap(C)).targets || []).some((t) => t.name === 'NOMAD' && t.inRange), { timeout: 30000 }).toBe(true);
+  await C.click('[data-act=catch-open]');
+  // (GABRIEL, offline with no known position, is listed too: for them the PIN alone decides.)
+  await C.locator('.target', { hasText: 'NOMAD' }).click();
+  await expect(C.locator('.target.sel .target-name')).toHaveText('NOMAD');
+  await typePin(C, newPin);
+  await C.waitForSelector('.catch-done');
+  await B.waitForSelector('#s-converted:not([hidden])');
+  await B.click('[data-act=conv-go]');
+  expect((await snap(B)).phase).toBe('live');                                // GABRIEL is still free, so the hunt goes on
+
+  // The old host's phone comes back: it finds its lobby taken over and rejoins as a player.
+  await A.goto(PAGE);
+  await A.waitForSelector('#s-game:not([hidden]) #hud', { timeout: 90000 });
+  await expect.poll(async () => { const s = await snap(A); return s && s.me.host === false && s.phase; }, { timeout: 60000 }).toBe('live');
+  expect(await A.evaluate(() => !!window.CH.host)).toBe(false);
+  expect((await snap(A)).me.role).toBe('prey');
+  await expect.poll(async () => (await snap(B)).players.find((p) => p.name === 'GABRIEL').conn, { timeout: 30000 }).toBe(true);
+  expect(oldPin).toMatch(/^\d{4}$/);
+  expect(B.errors.concat(C.errors)).toEqual([]);
+});
+
+// ---------------------------------------------------------------- problem reports
+const REPORTS_PAGE = PAGE.replace('reports=off', 'reports=127.0.0.1:8080/__reports');
+const sentBy = async (page) => {
+  const device = await page.evaluate(() => JSON.parse(localStorage.getItem('ch2.device')));
+  return (await (await fetch(SITE + '/__reports')).json()).filter((r) => r.device === device);
+};
+
+test('problem reports: sent by hand, or automatically only after the player agrees', { tag: '@webkit' }, async ({ game }) => {
+  // By hand, from the report window.
+  const A = await game.player('SOLO', undefined, { url: REPORTS_PAGE });
+  await A.click('#s-home [data-act=report]');
+  await A.click('[data-act=report-send]');
+  await expect(A.locator('#toasts')).toContainText('Report sent');
+  let rows = await sentBy(A);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ reason: 'manual', lobby: null });
+  expect(rows[0].app_version).toMatch(/^\d+\.\d+\.\d+$/);
+  expect(rows[0].body).toContain('CITY HUNTER PROBLEM REPORT');
+  expect(rows[0].body).not.toContain('51.50');                    // no coordinates
+  expect(rows[0].key).toMatch(/^sb_publishable_/);                // only the public key ever leaves the phone
+  await expect(A.locator('[data-act=reports-toggle]')).toHaveAttribute('aria-checked', 'false');
+  await A.click('#modal [data-act=modal-close]');
+
+  // Something goes wrong (a failed join). Nothing is sent; the player is asked first.
+  await A.fill('#join-code', 'ZZZZZZ');
+  await A.click('.join-btn');
+  await expect(A.locator('#modal')).toContainText('Send problem reports?', { timeout: 30000 });
+  expect(await sentBy(A)).toHaveLength(1);
+  await A.click('[data-act=reports-no]');
+  expect(await A.evaluate(() => window.CH.reports.consent())).toBe('off');
+  // Declined: the next failure neither asks again nor sends.
+  await A.click('.join-btn');
+  await expect(A.locator('#toasts')).toContainText('No lobby with code', { timeout: 30000 });
+  await sleep(1500);
+  await expect(A.locator('#modal')).toBeHidden();
+  expect(await sentBy(A)).toHaveLength(1);
+
+  // Another phone says yes: that failure is reported, once.
+  const B = await game.player('OTHER', undefined, { url: REPORTS_PAGE });
+  await B.fill('#join-code', 'ZZZZZZ');
+  await B.click('.join-btn');
+  await expect(B.locator('#modal')).toContainText('Send problem reports?', { timeout: 30000 });
+  await B.click('[data-act=reports-yes]');
+  await expect.poll(async () => (await sentBy(B)).map((r) => r.reason)).toEqual(['join-failed']);
+  await B.click('.join-btn');
+  await expect(B.locator('#toasts')).toContainText('No lobby with code', { timeout: 30000 });
+  await sleep(1500);
+  expect(await sentBy(B)).toHaveLength(1);                        // the same problem is not sent twice in one visit
+  // The switch in the report window turns it off again.
+  await B.click('#s-home [data-act=report]');
+  await expect(B.locator('[data-act=reports-toggle]')).toHaveAttribute('aria-checked', 'true');
+  await B.click('[data-act=reports-toggle]');
+  await expect(B.locator('[data-act=reports-toggle]')).toHaveAttribute('aria-checked', 'false');
+  expect(A.errors.concat(B.errors)).toEqual([]);
+});

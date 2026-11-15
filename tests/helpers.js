@@ -6,7 +6,8 @@ const base = require('@playwright/test');
 const ORIGIN = 'http://127.0.0.1:8080';
 // HARVEST=1 collects every string the app shows into harvest.jsonl (for translators).
 const HARVEST = process.env.HARVEST ? '&harvest' : '';
-const URL = ORIGIN + '/index.html?ps=127.0.0.1:9000' + HARVEST;
+// Every test page uses the local signalling server and the local relay stand-in.
+const URL = ORIGIN + '/index.html?ps=127.0.0.1:9000&relay=127.0.0.1:9100&reports=off' + HARVEST;
 const HOME = { latitude: 51.5073, longitude: -0.1657, accuracy: 5 };
 
 // A point `north` and `east` metres from HOME.
