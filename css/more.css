@@ -74,3 +74,120 @@
 /* Items in a scrolling column keep their natural height: a card with
    overflow:hidden would otherwise be squashed and clip its own content. */
 .scroll > *:not(.grow) { flex-shrink: 0; }
+
+/* =====================================================================
+   v2.2.1: map menu, joining card, small phones, clearer states
+   ===================================================================== */
+
+/* ---------- map menu ---------- */
+.menu-list { display: flex; flex-direction: column; gap: 8px; }
+.menu-row {
+  min-height: 60px; padding: 8px 12px; border-radius: 14px; text-align: left;
+  border: var(--bd-ctl-w) solid var(--bd-strong); background: var(--raised); color: var(--text);
+  display: flex; align-items: center; gap: 12px;
+}
+.menu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.menu-text strong { font-weight: var(--fw-bold); font-size: 16px; }
+.menu-row.danger { border-color: var(--hunter-ink); color: var(--hunter-ink); }
+.menu-row.danger .muted { color: inherit; }
+.switch { width: 48px; height: 28px; flex-shrink: 0; border-radius: 999px; background: var(--inset); border: 2px solid var(--bd-strong); position: relative; }
+.switch i { position: absolute; left: 2px; top: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--muted); transition: transform 0.15s; }
+.switch.on { background: var(--lime); border-color: var(--lime-bd); }
+.switch.on i { transform: translateX(20px); background: var(--on-lime); }
+
+/* ---------- home: joining card, invite note ---------- */
+.joining { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 8px; }
+.joining .spin-arc { stroke: var(--lime-ink); }
+.joining-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.joining-text strong { font-weight: var(--fw-bold); font-size: 16px; }
+.home.busy .field:disabled, .home.busy .btn:disabled { opacity: 0.5; }
+.invite-note { display: flex; gap: 8px; align-items: flex-start; padding: 12px; margin-bottom: 8px; font-size: 15px; line-height: 1.4; border-color: var(--lime-ink); }
+.invite-note svg { margin-top: 2px; color: var(--lime-ink); flex-shrink: 0; }
+.home.invited .steps, .home.invited .home-pitch { display: none; }
+.btn:disabled { cursor: default; }
+
+/* ---------- map sheet: folded handle says what it opens ---------- */
+.sheet-handle .grip { width: 40px; height: 4px; border-radius: 999px; background: var(--handle); }
+.sheet-handle.closed {
+  align-self: stretch; width: auto; height: auto; min-height: 48px; margin-bottom: -6px; padding: 8px 0 0;
+  flex-direction: column; gap: 6px;
+}
+.handle-text { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: var(--fw-semi); color: var(--muted); }
+.handle-text .mono { color: var(--lime-ink); }
+
+/* ---------- HUD: closing zone ---------- */
+.hud-zone { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: var(--fw-semi); color: var(--muted); line-height: 1.2; }
+.hud-zone[hidden] { display: none; }
+.hud-zone svg { flex-shrink: 0; color: var(--hunter-ink); }
+
+/* ---------- compact ability slots: the name always fits ---------- */
+.slot.compact { height: auto; min-height: 64px; }
+.slot.compact .slot-name { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.15; }
+@media (max-width: 400px) {
+  .slot.compact[aria-pressed='false'] .slot-sub { display: none; }
+  .slot.compact { gap: 6px; padding: 8px; }
+}
+
+/* ---------- chat: read-only channel ---------- */
+.chat-input:disabled { opacity: 0.6; }
+.chat-form .send:disabled { opacity: 0.4; }
+
+/* ---------- results: replay notes ---------- */
+.route-note span + span::before { content: ' \00B7 '; }
+
+/* ---------- reveal: button outside the scrolling part ---------- */
+.reveal-foot { flex-shrink: 0; padding-top: 12px; border-top: 1px solid var(--bd-soft); background: var(--page); }
+.reveal { padding-bottom: 16px; }
+
+/* ---------- small phones (iPhone SE and similar, about 667 px tall or less) ---------- */
+@media (max-height: 700px) {
+  /* Home: straight to the form */
+  .home { padding-top: 12px; }
+  .home-top { gap: 8px; margin-top: 0; }
+  .home-title { font-size: min(40px, 11cqw); }
+  .home-title br { display: none; }
+  .home-pitch { font-size: 15px; line-height: 1.4; }
+  .steps { display: none; }
+  .home-form { margin-top: 16px; gap: 10px; }
+  .divider { margin: 0; }
+
+  /* Role reveal */
+  .role-panel { padding: 18px 20px 16px; }
+  .you-are { font-size: 22px; margin-top: 8px; }
+  .role-big { font-size: min(84px, 22cqw); }
+  .role-panel.hunter .role-big { font-size: min(64px, 17cqw); }
+  .role-panel p { margin-top: 8px; font-size: 15px; }
+  .hs { padding-top: 14px; gap: 6px; }
+  .hs-clock { font-size: min(52px, 14cqw); }
+  .pin-card { margin-top: 12px; }
+  .reveal-foot { padding-top: 10px; }
+
+  /* Map */
+  .hud { padding: 10px 12px; gap: 8px; }
+  .hud-clock .mono { font-size: 24px; }
+  .banner { min-height: 44px; padding: 6px 12px; font-size: 14px; }
+  .banner-text .head { font-size: 16px; }
+  .oz-top p { display: none; }
+  .oz-bottom { padding: 10px; }
+  .oz-arrow { width: 48px; height: 48px; }
+  .oz-dir .head { font-size: 20px; }
+  .catch-btn { height: 68px; }
+  .tile { height: 64px; }
+
+  /* Tagged: the PIN stays big, everything around it tightens */
+  .tagged { padding-top: 16px; }
+  .tagged h1 { margin-top: 14px; font-size: min(40px, 10.5cqw); }
+  .tagged-lead { margin-top: 8px; font-size: 15px; }
+  .tagged-pin { margin-top: 16px; }
+  .tagged-pin span { height: 100px; }
+  .tagged-wait { margin-top: 12px; padding: 10px 12px; }
+  .tagged-foot { padding-top: 12px; }
+
+  /* Safety and other long modals */
+  .safety-list { gap: 8px; }
+  .safety-list li { font-size: 14px; }
+  .modal-card { gap: 10px; padding-top: 16px; }
+}
+
+/* Map buttons when two alert cards leave no room: help, menu and recenter stay. */
+#map-btns.tight [data-act='pin'], #map-btns.tight [data-act='theme'], #map-btns.tight [data-act='admin'] { display: none; }

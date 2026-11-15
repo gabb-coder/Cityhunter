@@ -25,7 +25,7 @@
 .gps-hide { min-height: 44px; border: 0; text-decoration: underline; }
 
 .gps-sheet.min {
-  left: 12px; right: 12px; bottom: calc(var(--sheet-h, 300px) + 12px);
+  left: 12px; right: 12px; bottom: calc(var(--sheet-h, 300px) + 12px + var(--oz-h, 0px));   /* stacks above the way-back card */
   padding: 0; border: 0; background: none; border-radius: 14px; overflow: visible;
 }
 .gps-bar {
@@ -45,17 +45,17 @@
 [data-theme='sun'] #zone-border { box-shadow: inset 0 0 0 8px var(--hunter); }
 #oz { position: absolute; inset: 0; z-index: 24; pointer-events: none; }
 .oz-top {
-  position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 14px);
-  padding: 16px; border-radius: 18px;
+  position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 124px);   /* js/ui/game.js keeps it just under the HUD */
+  padding: 12px 14px; border-radius: 16px;
   background: var(--hunter); color: var(--on-hunter);
   display: flex; flex-direction: column; gap: 6px; pointer-events: auto;
   box-shadow: var(--shadow);
 }
 .oz-kicker { font-size: 12px; letter-spacing: 0.14em; }
 .oz-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.oz-row h1 { font-size: min(34px, 8.7cqw); line-height: 0.95; }
-.oz-clock { font-size: min(44px, 11.3cqw); line-height: 0.9; }
-.oz-top p { margin-top: 4px; font-size: 15px; font-weight: var(--fw-semi); line-height: 1.4; }
+.oz-row h1 { font-size: min(30px, 7.7cqw); line-height: 0.95; }
+.oz-clock { font-size: min(40px, 10.3cqw); line-height: 0.9; }
+.oz-top p { margin-top: 2px; font-size: 14px; font-weight: var(--fw-semi); line-height: 1.35; }
 .oz-bottom {
   position: absolute; left: 12px; right: 12px; bottom: calc(var(--sheet-h, 300px) + 12px);
   padding: 14px; border-radius: 18px; background: var(--surface);

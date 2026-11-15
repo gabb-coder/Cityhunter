@@ -27,7 +27,11 @@ app.bus.on('joined', (info) => {
 setInterval(() => app.session && remember(), 10000);
 
 // Leaving on purpose (or being told to go) ends the offer to come back.
-app.bus.on('cleanup', () => {
+app.bus.on('cleanup', (opts) => {
+  if (opts && opts.keepOffer) {      // gave up waiting for the host: the offer stays
+    current = null;
+    return;
+  }
   if (current && current.host) store.del(HOST_SAVE_KEY);
   current = null;
   store.del(LAST_KEY);

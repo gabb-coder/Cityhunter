@@ -16,7 +16,11 @@ test('catch PIN: range check, wrong PIN, lockout, conversion', async ({ game }) 
 
   await C.click('[data-act=catch-open]');
   await expect(C.locator('.target.sel .target-name')).toHaveText('NOMAD');
-  await expect(C.locator('.target.off input')).toBeDisabled();
+  // Prey out of range are listed in one line, not as rows you cannot tap.
+  await expect(C.locator('.targets .target')).toHaveCount(1);
+  await expect(C.locator('.targets-rest')).toContainText('Too far: GABRIEL');
+  // Yes-or-no only: the snapshot never carries a live distance to a prey.
+  expect(sc.targets.every((t) => !('d' in t))).toBe(true);
   await expect(C.locator('.range.ok')).toContainText('GPS range check passed');
 
   // The prey's phone flips to the big-PIN screen.

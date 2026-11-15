@@ -17,12 +17,13 @@ const RULES = [
   ['Public places only', 'Stay out of private property, building sites, railways and anywhere marked no entry. No climbing.'],
   ['Eyes up', 'Look where you are going. Check the map when you are standing still.'],
   ['A tag is a light touch', 'No grabbing, tackling or blocking. Give other people on the street plenty of room.'],
-  ['Need help? Say so', 'The lifebuoy button on the map pauses the match for everyone and shows them where you are.']
+  ['Need help? Say so', 'The lifebuoy button on the map pauses the match for everyone and shows them where you are. It is for real problems: a prey who uses it is shown to the hunters for a while afterwards.']
 ];
 
 function safetyHtml(first) {
+  // The list scrolls; the button is always in view, even on a small phone.
   return '<h2>PLAY SAFE</h2>' +
-    '<ol class="safety-list">' + RULES.map((r) => '<li><strong>' + r[0] + '</strong><span>' + r[1] + '</span></li>').join('') + '</ol>' +
+    '<ol class="safety-list modal-scroll">' + RULES.map((r) => '<li><strong>' + r[0] + '</strong><span>' + r[1] + '</span></li>').join('') + '</ol>' +
     '<button type="button" class="btn btn-lime" data-act="safety-ok">' + (first ? 'I’ll play safe' : 'Got it') + '</button>';
 }
 
@@ -33,11 +34,15 @@ act('safety-ok', () => {
   closeModal();
 });
 
-// Shown once per lobby, the first time this phone lands in it.
+// Shown once per lobby, the first time this phone lands in it. Someone who
+// joins after the start never sees the lobby, so they get it on the way
+// into the match instead. Not for spectators or practice rounds.
 app.bus.on('screen', (name) => {
   const s = snap();
-  if (name !== 'lobby' || !s) return;
+  if (!s || !['lobby', 'reveal', 'game'].includes(name)) return;
+  if (s.me.role === 'spectator' || app.practice) return;
   if (store.get(SEEN_KEY, null, sessionStorage) === s.code) return;
+  if (name !== 'lobby') store.set(SEEN_KEY, s.code, sessionStorage);   // once is enough mid-match
   openModal(safetyHtml(true));
 });
 
@@ -61,7 +66,7 @@ bannerHooks.push((out, s) => {
   const h = s.help;
   if (!h) return;
   const canEnd = h.you || s.me.host;
-  out.push('<div class="banner hunter big help-banner" role="alert"><span class="banner-text">' +
+  out.add(0, '<div class="banner hunter big help-banner" role="alert"><span class="banner-text">' +
     '<span class="head">' + (h.you ? 'HELP REQUESTED' : esc(h.name.toUpperCase()) + ' NEEDS HELP') + '</span>' +
     '<span>' + (h.you ? 'Everyone can see where you are. The match is paused.' : 'The match is paused. Their position is on your map.') + '</span></span>' +
     (canEnd ? '<button type="button" class="btn btn-sm help-end" data-act="help-ok">' + (h.you ? 'I’m OK' : 'Resume') + '</button>' : '') +

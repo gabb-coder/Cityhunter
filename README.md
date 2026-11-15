@@ -34,8 +34,8 @@ Everything tunable is in `js/config.js`.
 | `catch.rangeM` | 15 | Hunter must be this close for a catch |
 | `catch.accuracySlackMaxM` | 20 | Extra distance allowed for poor GPS accuracy (capped) |
 | `catch.maxWrongPins` / `lockoutSec` | 3 / 30 | Wrong PINs before a hunter is locked out, and for how long |
-| `catch.allowWhenGpsStale` | true | A correct PIN still counts if one side has no fresh fix |
-| `catch.nearHunterM` | 60 | "I've been caught" only names a hunter this close |
+| `catch.allowWhenGpsStale` | true | A correct PIN still counts if the prey has no fresh fix. The hunter always needs a live one |
+| `catch.staleSlackMps` / `staleSlackMaxM` | 2 / 200 | Extra distance allowed per second since the prey's last fix, and its cap |
 | `gps.lostAfterSec` | 10 | No fix for this long shows the GPS-lost sheet |
 | `gps.graceSec` | 120 | Grace before the host is told and the circle keeps widening |
 | `gps.weakAccuracyM` | 30 | Accuracy worse than this shows WEAK GPS in the HUD |
@@ -49,15 +49,17 @@ Everything tunable is in `js/config.js`.
 | `ping.lostMaxRadiusM` | 2000 | Cap once a player's GPS grace has run out |
 | `fair.maxSpeedMps` / `jumpMinM` | 12 / 80 | A move faster and farther than this between two fixes is flagged to the host |
 | `fair.holdRadiusM` | 30 | Hunters must stay this close to their start point during the head start |
-| `fair.holdPenaltySec` | 60 | A hunter outside it at release cannot catch for this long (0 = warn only) |
+| `fair.holdPenaltySec` | 60 | A hunter outside it at release, or with no GPS fix there, cannot catch for this long (0 = warn only) |
+| `fair.holdAccSlackMaxM` / `holdSetWithinSec` | 30 / 30 | How much poor accuracy can excuse, and how soon the start point must be fixed |
 | `safety.showHelperLocation` | true | Everyone sees where a player who asked for help is |
-| `late.joinAsHunter` / `allowSpectators` | true / true | A player arriving mid-match joins the hunters; "Watch a match" is allowed |
+| `safety.revealAfterHelpSec` | 60 | A prey who paused the match is shown live to hunters for this long afterwards (0 = off) |
+| `late.joinAsHunter` / `allowSpectators` / `maxSpectators` | true / true / 8 | A player arriving mid-match joins the hunters; "Watch a match" is allowed; how many may watch |
 | `marks.lifeSec` | 180 | How long a team map pin stays |
 | `saver.dimAfterSec` / `mapRefreshMs` / `posSendSec` | 20 / 1000 / 4 | Battery saver: when the screen goes dark, and how often the map and position update |
 | `replay.minMoveM` / `maxPoints` / `seconds` | 8 / 500 / 9 | Route recording detail and the length of the animated replay |
 | `zone.shrinkStartFrac` / `shrinkEndFrac` | 0.2 / 0.85 | When a shrinking zone starts closing and when it reaches its final size |
 | `map.offline.zooms` / `maxTiles` / `keepTiles` | 15–17 / 160 / 800 | Map tiles saved for the play zone at match start |
-| `protocol` | 4 | Bump when messages change; phones on an older cached copy are turned away |
+| `protocol` | 5 | Bump when messages change; phones on an older cached copy are turned away |
 | `net.heartbeatSec` / `heartbeatTimeoutSec` | 2 / 8 | Heartbeat interval and the silence that counts as a dropped link |
 | `net.spotHoldSec` | 300 | A disconnected player's spot is held this long |
 | `net.hostOfflineHoldSec` | 180 | Match stays paused this long waiting for the host |
@@ -92,15 +94,34 @@ The host's phone runs the authoritative game (`js/host.js` plus the `js/host-*.j
 
 - **Problem report** (`js/diag.js`): "Report a problem" on Home, in the lobby, the host console, the results screen and the connection overlay. It packages this phone's recent connection, GPS and error log as text to share. It contains no positions, PINs or chat.
 - **Offline map for the zone** (`js/tiles.js`, `sw.js`): when a match starts, the service worker saves the tiles covering the play zone; tiles you look at are kept too. Limits are in `CONFIG.map.offline`. Keep them small on free tile servers, which do not allow bulk downloads.
-- **Battery saver**: the battery button on the map. The map and position update less often, and the screen goes to a dark clock after `saver.dimAfterSec` without a touch. Any alert wakes it.
+- **Battery saver**: a switch in the map menu. The map and position update less often, and the screen goes to a dark clock after `saver.dimAfterSec` without a touch. Any alert wakes it.
 - **Modes differ**: Skirmish has a shrinking zone by default, Dead Reckoning a fixed one. "Zone shrinks to" is a lobby rule, so the host can change either.
-- **Shrinking zone**: closes in steadily between two points of the match. The map shows the final zone and a banner while it shrinks.
+- **Shrinking zone**: closes in steadily between two points of the match. The map shows the final zone, and the HUD has a line while it shrinks. The shrink times are fixed at the start, so adding time in the host console does not move the zone.
 - **Everyone's routes in the replay** (`js/ui/replay.js`): the host records each player's route and sends them once at the end. The replay animates all of them, with yours drawn thicker.
-- **Late join and spectators**: someone joining mid-match becomes a hunter. "Watch a match" on Home joins as a spectator, who sees everyone live, is not counted, and can only use the everyone chat. Spectators are never asked for their location.
+- **Late join and spectators**: someone joining mid-match becomes a hunter. "Watch a match" on Home joins as a spectator, who sees everyone live and is not counted. During a match spectators can read the everyone chat but only write to each other. Spectators are never asked for their location.
 - **Team map pins**: the pin button, then tap the map. Only your side sees it. Tracker now asks which prey to follow.
 - **Practice round** (`js/practice.js`): a solo match against bots with no network, with one line of coaching at a time. Your position is simulated; tap the map to walk.
 - **Lobby chat**, and a **shareable result image** from the results screen.
 - **Chinese (Simplified)**: the globe button on Home switches language; a Chinese-language phone starts in Chinese.
+
+## Changed in 2.2.1
+
+Fixes from a full review of every feature.
+
+- **Fair play, checked by the host**
+  - A ping that falls due while a player has no GPS fix is owed: it lands, and is paid for, when their next position arrives. Switching GPS off around ping time gains nothing.
+  - A hunter needs a live GPS fix to catch. Only the prey's fix may be stale.
+  - A hunter with no fix at their start point when the head start ends gets the same penalty as one who walked off.
+  - Hunters are told only whether a prey is in range, never the live distance. "I've been caught" shows the PIN and names nobody.
+  - Decoys carry the same fields, ids and times as the real ping, including after Scan.
+  - A prey who uses the help button is shown live to hunters for `safety.revealAfterHelpSec` after play resumes. Spectators cannot pause the match.
+  - Ability ids, admin commands and player ids from other phones are looked up as own properties only.
+- **Map menu**: the three-line button on the map holds sound, battery saver, the safety rules, the problem report and **Leave match** (for the host: end the match for everyone).
+- **Joining**: Home shows a progress card with Cancel. A guest who reloads while the host is away keeps trying for `net.hostOfflineHoldSec` instead of giving up after a few seconds.
+- **Small phones** (about 667 px tall or less): Home goes straight to the form, the safety list scrolls above a fixed button, OPEN MAP and the catch keypad are always on screen, and the map panel starts folded.
+- **Clearer states**: CATCH says why it is off (paused, no GPS fix, penalty); the prey's PIN screen closes when the hunter cancels; lobby chat closes when the match starts; the host is asked before Home closes the lobby for everyone; a hunter outside the zone gets one line instead of the full alert.
+- **Chat**: a converted prey gets the hunter channel's history.
+- **Map tile storage**: tiles are fetched with CORS and only real (non-opaque) responses are stored, so the saved map takes kilobytes instead of hundreds of megabytes.
 
 ### Adding a language
 
@@ -112,7 +133,7 @@ The game uses the free public PeerJS cloud to let phones find each other. `serve
 
 ## Tests
 
-`tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server. It covers every feature above, including spectators, practice rounds, saved map tiles and a full match in Chinese.
+`tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server. It covers every feature above, including spectators, practice rounds, saved map tiles, a 360 x 640 phone, and a full match in Chinese. `tests/fixes.spec.js` holds a regression test for each fix in 2.2.1.
 
 ```bash
 cd tests

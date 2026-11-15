@@ -9,8 +9,8 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.2.0',
-  protocol: 4,             // bump when host and client messages change shape
+  version: '2.2.1',
+  protocol: 5,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
   catch: {
@@ -19,8 +19,9 @@ export const CONFIG = {
     accuracySlackMaxM: 20,   // extra distance allowed for poor GPS (capped)
     maxWrongPins: 3,         // wrong PINs before a hunter is locked out
     lockoutSec: 30,          // lockout length after too many wrong PINs
-    allowWhenGpsStale: true, // a correct PIN still counts if a fix is stale
-    nearHunterM: 60          // "I've been caught" only names a hunter this close
+    allowWhenGpsStale: true, // a correct PIN still counts if the PREY's fix is stale (the hunter always needs a live fix)
+    staleSlackMps: 2,        // ...within this much extra distance per second since the prey's last fix
+    staleSlackMaxM: 200      // ...capped at this
   },
 
   // GPS lost / weak.
@@ -74,13 +75,16 @@ export const CONFIG = {
     jumpMinM: 80,            // ...but only for moves of at least this far (GPS noise is smaller)
     flagRepeatSec: 30,       // the host is told at most this often per player
     holdRadiusM: 30,         // hunters must stay this close to their start during the head start
+    holdAccSlackMaxM: 30,    // poor GPS accuracy excuses at most this much of the distance
+    holdSetWithinSec: 30,    // the start point is the first fix in this many seconds; a later first fix counts as out of position
     holdPenaltySec: 60       // a hunter outside it at release cannot catch for this long (0 = warn only)
   },
 
   // Joining after the match has started, and watching.
   late: {
     joinAsHunter: true,      // a new player arriving mid-match joins the hunters
-    allowSpectators: true    // "Watch" on Home: sees everyone live, cannot act
+    allowSpectators: true,   // "Watch" on Home: sees everyone live, cannot act
+    maxSpectators: 8         // on top of lobby.maxPlayers
   },
 
   // Team map pins ("check here").
@@ -104,7 +108,8 @@ export const CONFIG = {
 
   // "Need help" button.
   safety: {
-    showHelperLocation: true // everyone sees where the player who asked for help is
+    showHelperLocation: true, // everyone sees where the player who asked for help is
+    revealAfterHelpSec: 60    // a prey who paused the match is shown live to hunters for this long afterwards (0 = off)
   },
 
   lobby: {

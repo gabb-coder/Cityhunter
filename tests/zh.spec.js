@@ -41,7 +41,7 @@ test('Chinese: Home, lobby, zone picker, safety and QR are fully translated', as
   const A = await game.player('GABRIEL');
   await toChinese(A);
   await expect(A.locator('[data-act=host]')).toContainText('创建追捕');
-  await expect(A.locator('.home-title')).toHaveText('CITYHUNTER');           // the wordmark stays
+  await expect(A.locator('.home-title')).toHaveText('CITY HUNTER');           // the wordmark stays
   expect(await leftovers(A, NAMES)).toEqual([]);
 
   await A.click('[data-act=host]');
@@ -95,6 +95,25 @@ test('Chinese: a whole match (map, shop, chat, catch, results) has no English le
   await check(A, 'prey map');
   await check(C, 'hunter map');
   await expect(A.locator('#hud .chip')).toHaveText('猎物');
+
+  // Map menu, its switches, and the leave confirmations (host and guest).
+  await A.click('#map-btns [data-act=menu]');
+  await check(A, 'menu (host)');
+  await expect(A.locator('#modal h2')).toHaveText('菜单');
+  await A.click('#modal [data-act=saver]');
+  await check(A, 'menu, saver on');
+  await A.click('#modal [data-act=saver]');
+  await A.click('#modal [data-act=menu-leave]');
+  await check(A, 'host leave confirm');
+  await A.click('#modal [data-act=modal-close]');
+  await B.click('#map-btns [data-act=menu]');
+  await B.click('#modal [data-act=menu-leave]');
+  await check(B, 'guest leave confirm');
+  await B.click('#modal [data-act=modal-close]');
+  await A.click('[data-act=sheet-toggle]');
+  await check(A, 'prey map, panel folded');
+  await A.click('[data-act=sheet-toggle]');
+  await sleep(3000);                                    // let the battery-saver toasts go
   await expect(C.locator('.catch-btn .head')).toHaveText('抓捕');
 
   // Shop, both tabs.
@@ -179,6 +198,9 @@ test('Chinese: a whole match (map, shop, chat, catch, results) has no English le
   await sleep(1500);
   await check(C, 'results (hunter)');
   await check(A, 'results (host)');
+  await A.click('[data-act=res-home]');
+  await check(A, 'host home confirm');
+  await A.click('#modal [data-act=modal-close]');
   await expect(C.locator('.res-head h1')).toHaveText('没有赢家');
   expect(A.errors.concat(B.errors, C.errors)).toEqual([]);
 });

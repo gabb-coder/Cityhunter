@@ -16,7 +16,7 @@
 //   js/host-resilience.js  heartbeats, spot hold, host recovery
 
 import { CONFIG, MODES, ECONOMY, RULE_OPTIONS } from './config.js';
-import { randomDigits, uid } from './util.js';
+import { randomDigits, uid, own } from './util.js';
 
 function matchFields() {
   return {
@@ -25,11 +25,13 @@ function matchFields() {
     pin: null,
     pos: null, posAt: 0,          // live position + wall-clock time received
     ping: null,                   // last ping others may see
+    owed: null,                   // a ping that fell due while this player had no fix
+    helpRevealT: 0,               // shown live to hunters until then (after a help pause)
     gps: { lostAt: 0, graceOut: false, told: false },
     out: { sinceT: null, revealed: false },
     caughtT: null, caughtBy: null, caughtWhy: null, caughtAt: null,
     catches: 0, pings: 0,
-    tag: null, selfTag: false,
+    tag: null,
     lock: { wrong: 0, untilT: 0 },
     hold: null, penaltyT: 0, flags: { jumps: 0, lastAt: 0 },
     path: [], late: false,
@@ -39,16 +41,16 @@ function matchFields() {
 
 function newGame(code) {
   return {
-    v: 4, code,
+    v: 5, code,
     phase: 'lobby',               // lobby | headstart | live | ended
     mode: 'DEAD_RECKONING',
     rules: { ...MODES.DEAD_RECKONING.rules },
     round: 0,
-    T: 0, headT: 0, endT: 0, nextPingT: 0, pingNo: 0,
+    T: 0, headT: 0, endT: 0, nextPingT: 0, pingNo: 0, shrink: null,
     paused: false, pauseReason: null,
     zone: null, zoneCenter: null, lock: null, help: null,
     players: {}, order: [], hostPid: null, hunterStack: [],
-    decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [] },
+    decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [], spectator: [] },
     evN: 0, chatN: 0,
     lastCatch: null, result: null
   };
@@ -59,7 +61,7 @@ export class Host {
     this.net = net;
     this.local = local;
     this.G = saved || newGame(code);
-    this.handlers = {};
+    this.handlers = Object.create(null);   // no inherited names: message kinds come from other phones
     this.hooks = { tick: [], live: [], view: [], start: [], convert: [], end: [], hello: [], lobby: [], pos: [], release: [] };
     this.cids = new Map();        // connection id -> player id
     this.dirty = true;
@@ -102,6 +104,10 @@ export class Host {
   isHost(p) {
     return p.id === this.G.hostPid;
   }
+  // A player by an id that another phone sent.
+  player(id) {
+    return own(this.G.players, id) || null;
+  }
   // Seconds of live play (after the head start).
   liveSec(T = this.G.T) {
     return Math.max(0, (T - this.G.headT) / 1000);
@@ -120,9 +126,9 @@ export class Host {
     let shrink = 1;
     const to = G.rules.zoneShrinkTo || 1;
     if (to < 1) {
-      const live = G.endT - G.headT;
-      const a = G.headT + live * CONFIG.zone.shrinkStartFrac;
-      const b = G.headT + live * CONFIG.zone.shrinkEndFrac;
+      // Fixed when the match starts, so adding or removing time in the host
+      // console never makes the zone jump.
+      const { aT: a, bT: b } = G.shrink || this.shrinkWindow();
       const k = Math.max(0, Math.min(1, (G.T - a) / Math.max(1, b - a)));
       shrink = 1 - (1 - to) * k;
       out.final = Math.round(z.r * to);
@@ -131,6 +137,12 @@ export class Host {
     }
     out.r = Math.round(z.r * shrink * (lock ? lock.factor : 1));
     return out;
+  }
+
+  shrinkWindow() {
+    const G = this.G;
+    const live = G.endT - G.headT;
+    return { aT: G.headT + live * CONFIG.zone.shrinkStartFrac, bT: G.headT + live * CONFIG.zone.shrinkEndFrac };
   }
 
   to(p, msg) {
@@ -193,7 +205,7 @@ export class Host {
   fromNet(cid, msg, peerId) {
     if (this.stopped) return;
     if (msg.k === 'hello') return this.hello(cid, msg, peerId);
-    const p = this.G.players[this.cids.get(cid)];
+    const p = this.player(this.cids.get(cid));
     if (p) this.handle(p, msg);
   }
 
@@ -224,7 +236,9 @@ export class Host {
       const watch = !!msg.watch;
       if (watch && !CONFIG.late.allowSpectators) return reject('no-watch');
       if (!watch && inMatch && !CONFIG.late.joinAsHunter) return reject('in-progress');
-      if (G.order.length >= CONFIG.lobby.maxPlayers + (watch ? 8 : 0)) return reject('full');
+      // Spectators and players who have left do not take up a player's place.
+      const watchers = this.all().filter((q) => q.role === 'spectator' && !q.dropped).length;
+      if (watch ? watchers >= CONFIG.late.maxSpectators : this.active().length >= CONFIG.lobby.maxPlayers) return reject('full');
       p = this.newPlayer(token, name);
       if (watch) {
         p.role = 'spectator';
@@ -252,7 +266,7 @@ export class Host {
   }
 
   linkDown(cid) {
-    const p = this.G.players[this.cids.get(cid)];
+    const p = this.player(this.cids.get(cid));
     this.cids.delete(cid);
     if (!p || p.cid !== cid) return;
     p.cid = null;
@@ -344,11 +358,12 @@ export class Host {
 
     this.on('cfg', hostOnly(lobbyOnly((p, m) => {
       const G = this.G;
-      if (m.mode && MODES[m.mode]) {
+      if (own(MODES, m.mode)) {
         G.mode = m.mode;
         G.rules = { ...MODES[m.mode].rules };
       }
-      if (m.rule && RULE_OPTIONS[m.rule] && RULE_OPTIONS[m.rule].includes(m.value)) G.rules[m.rule] = m.value;
+      const options = own(RULE_OPTIONS, m.rule);
+      if (options && options.includes(m.value)) G.rules[m.rule] = m.value;
       // Zone centre picked on the map (null = wherever the host stands at start).
       if ('zone' in m) {
         const z = m.zone;
@@ -367,7 +382,7 @@ export class Host {
     })));
 
     this.on('role', hostOnly(lobbyOnly((p, m) => {
-      const q = this.G.players[m.id];
+      const q = this.player(m.id);
       if (q && q.role !== 'spectator') this.setLobbyRole(q, q.role === 'hunter' ? 'prey' : 'hunter');
     })));
 
@@ -415,6 +430,7 @@ export class Host {
     G.endT = G.headT + G.rules.matchSec * 1000;
     G.nextPingT = G.headT + (CONFIG.ping.firstPingAtRelease ? 0 : G.rules.pingSec * 1000);
     G.pingNo = 0;
+    G.shrink = this.shrinkWindow();
     G.zone = { lat, lng, r: G.rules.zoneRadiusM };
     G.lock = null;
     G.help = null;
@@ -424,6 +440,7 @@ export class Host {
     G.result = null;
     G.chat.prey = [];
     G.chat.hunter = [];
+    G.chat.spectator = [];
 
     // One random PIN per prey per match. It only ever travels inside that
     // prey's own snapshot.
@@ -483,7 +500,8 @@ export class Host {
     q.caughtAt = q.pos ? { lat: q.pos.lat, lng: q.pos.lng } : null;
     q.pin = null;
     q.tag = null;
-    q.selfTag = false;
+    q.owed = null;
+    q.helpRevealT = 0;
     q.fx = {};
     q.out = { sinceT: null, revealed: false };
     G.decoys = G.decoys.filter((d) => d.owner !== q.id);

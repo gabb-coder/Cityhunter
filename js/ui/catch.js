@@ -1,7 +1,7 @@
 // Screens 7 and 8: Confirm catch (hunter), Tagged (prey), and the
 // "you are now a hunter" conversion screen.
 
-import { $, esc, setHTML, clock, metres, joinNames, plural } from '../util.js';
+import { $, esc, setHTML, clock, joinNames, plural } from '../util.js';
 import { cue } from '../sound.js';
 import { icon } from '../icons.js';
 import { CONFIG, ECONOMY } from '../config.js';
@@ -24,7 +24,7 @@ function pickTarget(id) {
 act('catch-open', () => {
   const s = snap();
   Object.assign(st, { target: null, pin: '', busy: false, error: null, done: null });
-  const first = (s.targets || []).filter((t) => t.inRange && !t.safe).sort((a, b) => (a.d || 0) - (b.d || 0))[0];
+  const first = (s.targets || []).filter((t) => t.inRange && !t.safe)[0];
   setLayer('catch');
   if (first) pickTarget(first.id);
   render();
@@ -41,6 +41,8 @@ function errorText(m) {
     case 'locked': return 'Too many wrong PINs. Locked for ' + m.lockSec + ' s.';
     case 'penalty': return 'Head-start penalty: you cannot catch for another ' + m.lockSec + ' s.';
     case 'range': return 'Too far away. Get within ' + C.rangeM + ' m and try again.';
+    case 'gps': return 'Your phone has no GPS fix, so the host cannot check you are close. Get a fix and try again.';
+    case 'paused': return 'The match is paused. Try again when it resumes.';
     case 'safe': return 'They are inside a Safe House. Wait it out.';
     default: return 'That player cannot be caught right now.';
   }
@@ -72,9 +74,7 @@ act('key', (el) => {
 function targetRow(t) {
   const sel = t.id === st.target;
   const can = t.inRange && !t.safe;
-  const note = t.safe ? 'in a Safe House'
-    : t.inRange ? (t.d != null ? '≈' + metres(t.d) + ' · ' : '') + (t.stale ? 'no GPS · PIN only' : 'in range')
-    : t.d != null ? 'last seen ' + metres(t.d) + ' · too far' : 'not seen yet · too far';
+  const note = t.safe ? 'in a Safe House' : t.inRange ? (t.stale ? 'no GPS · PIN only' : 'in range') : 'too far';
   return '<label class="target' + (sel ? ' sel' : '') + (can ? '' : ' off') + '">' +
     '<input type="radio" name="target" value="' + t.id + '"' + (sel ? ' checked' : '') + (can ? '' : ' disabled') + '>' +
     '<span class="mono target-name" translate="no">' + esc(t.name) + '</span>' +
@@ -102,7 +102,7 @@ function renderCatch() {
     return;
   }
 
-  const targets = (s.targets || []).slice().sort((a, b) => (b.inRange - a.inRange) || ((a.d == null ? 1e9 : a.d) - (b.d == null ? 1e9 : b.d)));
+  const targets = (s.targets || []).slice().sort((a, b) => (b.inRange - a.inRange) || a.name.localeCompare(b.name));
   // The picked prey walked out of range (or was caught by someone else).
   const cur = targets.find((t) => t.id === st.target);
   if (st.target && (!cur || !cur.inRange || cur.safe) && !st.busy) {
@@ -116,9 +116,24 @@ function renderCatch() {
   const sel = targets.find((t) => t.id === st.target);
   const locked = s.me.lock && s.me.lock.untilT;
 
+  const noFix = s.me.noFix || app.geo.lost;
   const check = sel
-    ? '<p class="range ok">' + icon('check', 18, 3) + '<span>GPS range check passed: ' + esc(sel.name) + (sel.stale || sel.d == null ? ' has no live fix, PIN decides' : ' is ≈' + metres(sel.d) + ' away (limit ' + C.rangeM + ' m)') + '</span></p>'
+    ? '<p class="range ok">' + icon('check', 18, 3) + '<span>GPS range check passed: ' + esc(sel.name) + (sel.stale ? ' has no live fix, PIN decides' : ' is within ' + C.rangeM + ' m') + '</span></p>'
+    : s.paused ? '<p class="range no">' + icon('pause', 18, 2.5) + '<span>The match is paused. Catches are off until it resumes.</span></p>'
+    : noFix ? '<p class="range no">' + icon('noGps', 18, 2.5) + '<span>Your phone has no GPS fix. The host needs one to check you are within ' + C.rangeM + ' m.</span></p>'
     : '<p class="range no">' + icon('warn', 18, 2.5) + '<span>No prey within ' + C.rangeM + ' m. Get closer, then pick who you tagged.</span></p>';
+
+  // Prey that cannot be caught right now fold into one line, so the list
+  // never pushes the keypad off a small screen.
+  const can = targets.filter((t) => t.inRange && !t.safe);
+  const cannot = targets.filter((t) => !(t.inRange && !t.safe));
+  const safe = cannot.filter((t) => t.safe);
+  const far = cannot.filter((t) => !t.safe);
+  const rest = cannot.length
+    ? '<p class="targets-rest muted">' +
+        (safe.length ? 'In a Safe House: <span translate="no">' + esc(safe.map((t) => t.name).join(', ')) + '</span>. ' : '') +
+        (far.length ? 'Too far: <span translate="no">' + esc(far.map((t) => t.name).join(', ')) + '</span>.' : '') + '</p>'
+    : '';
 
   const boxes = Array.from({ length: N }, (_, i) =>
     '<span class="mono pin-box' + (sel && !st.busy && i === st.pin.length ? ' cur' : i < st.pin.length ? ' filled' : '') + '">' + esc(st.pin.charAt(i)) + '</span>').join('');
@@ -136,6 +151,7 @@ function renderCatch() {
     '<button type="button" class="key mono" data-act="key" data-k="0"' + keyOff + '>0</button>' +
     '<button type="button" class="key back" data-act="key" data-k="back" aria-label="Delete digit"' + keyOff + '>' + icon('backspace', 26) + '</button>';
 
+  // The keypad is fixed at the bottom; only the part above it scrolls.
   setHTML(root,
     '<div class="catch scroll">' +
       '<header class="catch-head">' +
@@ -145,14 +161,14 @@ function renderCatch() {
       '<div class="catch-title"><h1 class="head">CONFIRM CATCH</h1>' +
         '<p class="muted">Tag them, then type the ' + N + '-digit PIN on their screen.</p></div>' +
       '<fieldset class="targets" id="targets"><legend class="label">Who did you tag?</legend>' +
-        (targets.length ? targets.map(targetRow).join('') : '<p class="muted">No prey left to catch.</p>') +
+        (can.length ? can.map(targetRow).join('') : '') +
+        (targets.length ? rest : '<p class="muted">No prey left to catch.</p>') +
       '</fieldset>' +
       check +
       '<div class="pin-entry"><span class="label" id="pin-label">' + (sel ? esc(sel.name) + '’s PIN' : 'PIN') + '</span>' +
         '<div class="pin-boxes" role="group" aria-labelledby="pin-label">' + boxes + '</div>' + status + '</div>' +
-      '<div class="grow"></div>' +
-      '<div class="keypad pad-b">' + keys + '</div>' +
-    '</div>');
+    '</div>' +
+    '<div class="keypad pad-b">' + keys + '</div>');
   tickCatch();
 }
 
@@ -191,9 +207,9 @@ app.bus.on('session', (session) => {
 // ---------------------------------------------------------------- prey: tagged
 const tagKey = (s) => (s.me.tag ? s.me.tag.key : null);
 
+// "I've been caught": the prey opens the PIN screen themselves.
 act('self-tag', () => {
   app.ui.selfTag = true;
-  app.session.send({ k: 'tagged:self', on: true });
   setLayer('tagged');
 });
 
@@ -201,7 +217,6 @@ act('tag-back', () => {
   const s = snap();
   app.ui.tagDismissed = s ? tagKey(s) : null;
   app.ui.selfTag = false;
-  app.session.send({ k: 'tagged:self', on: false });
   setLayer(null);
 });
 
@@ -212,12 +227,19 @@ function renderTagged() {
   // A hunter started a catch on me: jump to the PIN screen.
   if (me.role === 'prey' && me.tag && me.tag.key !== app.ui.tagDismissed && app.ui.layer !== 'tagged' && app.ui.mapOpen) {
     cue('tagged');
+    app.ui.selfTag = false;
     setLayer('tagged');
   }
   if (app.ui.layer !== 'tagged') return;
   if (me.role !== 'prey') return setLayer(null);
+  // The hunter cancelled (or walked off) and this screen opened by itself:
+  // go back to the map instead of leaving the PIN on show.
+  if (!me.tag && !app.ui.selfTag) {
+    toast('The hunter cancelled the catch', '', 2500);
+    return setLayer(null);
+  }
 
-  const who = me.tag || me.near;
+  const who = me.tag;
   const pin = me.pin || '';
   setHTML($('#s-tagged'),
     '<div class="tagged scroll">' +
@@ -230,7 +252,7 @@ function renderTagged() {
       '<div class="tagged-wait">' +
         '<span class="tagged-av head" aria-hidden="true">' + esc(who ? who.by.charAt(0) : '?') + '</span>' +
         '<span class="tagged-who"><strong>' + (who ? 'Waiting for ' + esc(who.by) : 'Waiting for a hunter') + '</strong>' +
-          '<span>' + (who ? (me.tag ? 'Confirming the catch' : 'Nearest hunter') + (who.d != null ? ' · ' + metres(who.d) + ' away' : '') : 'No hunter is close enough yet') + '</span></span>' +
+          '<span>' + (who ? 'Confirming the catch' : 'They tap CATCH and pick your name') + '</span></span>' +
         '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
       '</div>' +
       '<div class="grow"></div>' +

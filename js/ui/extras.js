@@ -7,7 +7,7 @@ import { CONFIG, ABILITIES } from '../config.js';
 import { cue } from '../sound.js';
 import { buildReport } from '../diag.js';
 import { app, snap } from '../state.js';
-import { act, onRender, onTick, screen, render, openModal, closeModal, toast } from './core.js';
+import { act, onRender, onTick, screen, render, openModal, closeModal, confirmModal, toast } from './core.js';
 import { bannerHooks, mapItemHooks, mapButtonHooks } from './game.js';
 
 const playing = () => screen() === 'game' && app.session && app.session.inMatch;
@@ -109,12 +109,6 @@ function tickDim() {
   setText($('#dim-ping'), clock((s.nextPingT - T) / 1000));
 }
 
-mapButtonHooks.push(() => ({
-  col: 'side',
-  html: '<button type="button" class="icon-btn" data-act="saver" aria-pressed="' + app.saver.on + '" aria-label="' +
-    (app.saver.on ? 'Battery saver on. Tap to turn off.' : 'Battery saver off. Tap to turn on.') + '">' + icon('saver', 22) + '</button>'
-}));
-
 act('saver', () => {
   const on = app.saver.toggle();
   toast(on ? 'Battery saver on: the screen dims after ' + CONFIG.saver.dimAfterSec + ' s' : 'Battery saver off', on ? 'lime' : '', 2500);
@@ -131,12 +125,13 @@ bannerHooks.push((out, s, T) => {
   const key = s.code + ':' + s.round;
   if (shrinkCued !== key) {
     shrinkCued = key;
-    cue('zone');
-    toast('The zone has started to close in', 'hunter');
+    // Only at the moment it starts, not for someone who joins later.
+    if (T - z.shrinkStartT < 5000) {
+      cue('zone');
+      toast('The zone has started to close in', 'hunter');
+    }
   }
-  if (T < z.shrinkEndT) {
-    out.push('<div class="banner neutral" role="status">' + icon('lockdown', 20) + '<span>Zone closing in · ' + metres(z.r) + ' now, ' + metres(z.final) + ' at ' + clock(Math.max(0, (s.endT - z.shrinkEndT) / 1000)) + ' left</span></div>');
-  }
+  // The running status is a line in the HUD (js/ui/game.js), not a banner.
 });
 
 // Where the zone will end up.
@@ -180,7 +175,7 @@ app.bus.on('mapclick', (p) => {
 });
 
 bannerHooks.push((out) => {
-  if (app.ui.marking) out.push('<div class="banner lime" role="status">' + icon('pin', 20) + '<span>Tap the map where your team should look</span></div>');
+  if (app.ui.marking) out.add(1, '<div class="banner lime" role="status">' + icon('pin', 20) + '<span>Tap the map where your team should look</span></div>');
 });
 
 mapItemHooks.push((items, s, T) => {
@@ -205,10 +200,15 @@ app.bus.on('cleanup', () => {
 export function pickTrackerTarget() {
   const s = snap();
   const fix = app.geo.fix;
+  // One row per prey. A prey with decoys out has several circles; the
+  // nearest one is used for the distance (nobody can tell which is real).
   const seen = new Map();
   for (const pg of s.pings) {
-    if (pg.kind !== 'prey' || String(pg.id).startsWith('decoy')) continue;
-    seen.set(pg.id, { id: pg.id, name: pg.name, d: fix ? dist(fix, pg) : null });
+    if (pg.kind !== 'prey') continue;
+    const id = pg.pid || pg.id;
+    const d = fix ? dist(fix, pg) : null;
+    const had = seen.get(id);
+    if (!had || (d != null && d < had.d)) seen.set(id, { id, name: pg.name, d });
   }
   const list = Array.from(seen.values()).sort((a, b) => (a.d == null ? 1e9 : a.d) - (b.d == null ? 1e9 : b.d));
   if (!list.length) return toast('No prey has pinged yet');
@@ -231,6 +231,54 @@ act('use', (el) => {
   const s = snap();
   if (id === 'tracker' && !(s.me.fx && s.me.fx.tracker)) return pickTrackerTarget();
   app.session.send({ k: 'use', id });
+});
+
+// ---------------------------------------------------------------- map menu
+// Everything that is not needed every minute: sound, battery saver, the
+// safety rules, a problem report, and the way out of the match.
+function menuBody() {
+  const s = snap();
+  if (!s) return '';
+  const me = s.me;
+  const toggle = (name, ico, title, sub, on) =>
+    '<button type="button" class="menu-row" data-act="' + name + '" role="switch" aria-checked="' + on + '">' + icon(ico, 22) +
+      '<span class="menu-text"><strong>' + title + '</strong><span class="small muted">' + sub + '</span></span>' +
+      '<span class="switch' + (on ? ' on' : '') + '" aria-hidden="true"><i></i></span></button>';
+  const link = (name, ico, title, sub, cls = '') =>
+    '<button type="button" class="menu-row ' + cls + '" data-act="' + name + '">' + icon(ico, 22) +
+      '<span class="menu-text"><strong>' + title + '</strong>' + (sub ? '<span class="small muted">' + sub + '</span>' : '') + '</span>' + icon('chevRight', 18, 2.25) + '</button>';
+  const leave = app.practice ? ['Exit practice', 'Back to the home screen']
+    : me.role === 'spectator' ? ['Stop watching', 'Back to the home screen']
+    : me.host ? ['End match and leave', 'You are the host: this ends the match for everyone']
+    : ['Leave match', 'You are out for the rest of this match'];
+  return toggle('sound', app.sound.on ? 'sound' : 'mute', 'Sound alerts', app.sound.on ? 'On: pings, warnings and catches make a sound' : 'Off: this phone stays silent', app.sound.on) +
+    (me.role === 'spectator' ? '' : toggle('saver', 'saver', 'Battery saver', 'Dims the screen after ' + CONFIG.saver.dimAfterSec + ' s and updates less often', app.saver.on)) +
+    link('safety', 'shield', 'Safety rules', '') +
+    link('report', 'warn', 'Report a problem', '') +
+    link('menu-leave', 'exit', leave[0], leave[1], 'danger');
+}
+
+act('menu', () => openModal(
+  '<h2>MENU</h2><div class="menu-list" id="menu-body">' + menuBody() + '</div>' +
+  '<button type="button" class="btn btn-quiet" data-act="modal-close">Close</button>'));
+
+// Keep the switches in step after a tap.
+onRender(() => {
+  const box = $('#menu-body');
+  if (box && !$('#modal').hidden) setHTML(box, menuBody());
+});
+
+act('menu-leave', () => {
+  const s = snap();
+  if (!s) return closeModal();
+  if (app.practice || s.me.role === 'spectator') {
+    closeModal();
+    return app.go.leave();
+  }
+  confirmModal(s.me.host
+    ? { title: 'End the match for everyone?', body: 'You are the host. If you leave, the match ends for every player. To stop the match but keep the lobby, use the host console instead.', yes: 'End match and leave', tone: 'btn-hunter' }
+    : { title: 'Leave this match?', body: s.me.role === 'prey' ? 'You are out for the rest of this match, and the hunters are told. If you come back you join the hunters.' : 'You are out for the rest of this match.', yes: 'Leave match', tone: 'btn-hunter' },
+  () => app.go.leave());
 });
 
 onRender(renderDim);

@@ -11,7 +11,7 @@ test('problem report: has the diagnostics, has no positions or PINs', async ({ g
   await A.click('#s-admin [data-act=report]');
   const text = await A.inputValue('.report-text');
   expect(text).toContain('CITY HUNTER PROBLEM REPORT');
-  expect(text).toContain('version: 2.2.0');
+  expect(text).toContain('version: 2.2.1');
   expect(text).toMatch(/me: GABRIEL \/ prey \/ host/);
   expect(text).toMatch(/phase: live/);
   expect(text).toMatch(/gps\s+ok/);
@@ -49,7 +49,7 @@ test('map tiles for the play zone are saved and served with no network', async (
   expect(saved.total).toBeGreaterThan(10);
   expect(saved.total).toBeLessThanOrEqual(160);
   expect(saved.ok).toBe(saved.total);
-  const stored = await A.evaluate(async () => (await (await caches.open('cityhunter-tiles-v1')).keys()).map((r) => r.url));
+  const stored = await A.evaluate(async () => (await (await caches.open('cityhunter-tiles-v2')).keys()).map((r) => r.url));
   expect(stored.length).toBeGreaterThanOrEqual(saved.total);          // plus any tiles simply looked at
 
   // No network: a saved tile still loads, an unsaved one does not.
@@ -64,7 +64,11 @@ test('battery saver: dims after a quiet spell, wakes on a touch or an alert, rep
   await live(A);
   await config(A, { saver: { dimAfterSec: 1 } });
   await expect(A.locator('#dim')).toBeHidden();
-  await A.click('#map-btns [data-act=saver]');
+  // Battery saver lives in the map menu.
+  await A.click('#map-btns [data-act=menu]');
+  await A.click('#modal [data-act=saver]');
+  await expect(A.locator('#modal [data-act=saver]')).toHaveAttribute('aria-checked', 'true');
+  await A.click('#modal [data-act=modal-close]');
   expect(await A.evaluate(() => window.CH.saver.on)).toBe(true);
   await expect(A.locator('#dim')).toBeVisible({ timeout: 5000 });
   await expect(A.locator('#dim-clock')).toHaveText(/\d\d:\d\d/);
@@ -76,7 +80,9 @@ test('battery saver: dims after a quiet spell, wakes on a touch or an alert, rep
   await A.evaluate(() => window.CH.sound.cue('near'));    // so does an alert
   await expect(A.locator('#dim')).toBeHidden();
 
-  await A.click('#map-btns [data-act=saver]');
+  await A.click('#map-btns [data-act=menu]');
+  await A.click('#modal [data-act=saver]');
+  await A.click('#modal [data-act=modal-close]');
   await sleep(2000);
   await expect(A.locator('#dim')).toBeHidden();
   expect(await A.evaluate(() => window.CH.session.posEveryMs())).toBe(2000);
@@ -104,7 +110,8 @@ test('shrinking zone closes in, shows the final zone, and catches out a prey nea
   expect(z0.final).toBe(120);
   expect(z0.r).toBeGreaterThan(280);
   await expect.poll(async () => (await snap(B)).zone.r, { timeout: 20000 }).toBeLessThan(240);
-  await expect(B.locator('#banners')).toContainText('Zone closing in');
+  await expect(B.locator('#hud-zone')).toContainText('Zone closing in');   // a line in the HUD, not a banner
+  await expect(B.locator('#banners')).not.toContainText('Zone closing in');
   await expect.poll(() => B.evaluate(() => window.CH.map.items.has('final'))).toBe(true);
   // The edge passes NOMAD: the out-of-zone alert starts.
   await expect(B.locator('#oz .oz-top')).toContainText('GET BACK IN', { timeout: 20000 });
@@ -127,7 +134,7 @@ test('results replay shows everyone\u2019s routes and plays back; result card is
   expect(await A.locator('.route-line.me').count()).toBeGreaterThan(0);
   expect(await A.locator('.route-line:not(.me)').count()).toBeGreaterThan(1);
   expect(await A.locator('.route-line.hunter:not(.me)').count()).toBeGreaterThan(0);   // VIPER's orange line
-  await expect(A.locator('.route-text')).toContainText('thick line is you');
+  await expect(A.locator('.route-text')).toContainText('Thick line is you');
 
   await A.click('[data-act=replay]');
   await expect(A.locator('#replay-clock')).toHaveText(/\d\d:\d\d/);
@@ -163,6 +170,8 @@ test('late joiner becomes a hunter; a spectator sees everyone live and cannot ac
   expect((await snap(D)).me.role).toBe('hunter');
   await expect(A.locator('#toasts')).toContainText('JUNO joined late as a hunter');
   await expect.poll(async () => (await snap(A)).counts.hunters).toBe(2);
+  // Someone who never saw the lobby still gets the safety reminder.
+  await D.click('[data-act=safety-ok]');
   await D.click('[data-act=open-map]');
   await expect.poll(async () => (await snap(D)).live.some((l) => l.name === 'VIPER')).toBe(true);   // sees teammates
 
@@ -189,9 +198,23 @@ test('late joiner becomes a hunter; a spectator sees everyone live and cannot ac
   expect((await snap(A)).me.role).toBe('prey');
   // The spectator's snapshot must not carry anyone's PIN.
   expect(JSON.stringify(await snap(S))).not.toContain('"' + sa.me.pin + '"');
-  // Everyone-chat only.
+  // Nor can a spectator stop the match.
+  await send(S, { k: 'help', on: true });
+  await sleep(600);
+  expect((await snap(A)).paused).toBe(false);
+  // Chat: spectators see every player live, so during a match they can read
+  // "Everyone" but only write to each other.
   await S.click('#sheet [data-act=chat]');
-  await expect(S.locator('#chat-tabs')).toBeHidden();
+  await expect(S.locator('#chat-tabs [data-tab=team]')).toContainText('Spectators');
+  await S.click('#chat-tabs [data-tab=all]');
+  await expect(S.locator('#chat-input')).toBeDisabled();
+  await send(S, { k: 'chat', ch: 'all', text: 'NOMAD is behind the cafe' });   // a hand-made message is rerouted too
+  await sleep(800);
+  expect(await A.evaluate(() => JSON.stringify(window.CH.session.chat))).not.toContain('behind the cafe');
+  expect(await S.evaluate(() => window.CH.session.chat.team.map((m) => m.text))).toContain('NOMAD is behind the cafe');
+  // No GPS warnings or zone alerts for someone who is only watching.
+  await expect(S.locator('#gps-sheet')).toBeHidden();
+  await expect(S.locator('#oz')).toBeHidden();
   expect(B.errors.concat(C.errors, D.errors, S.errors)).toEqual([]);
 });
 
@@ -201,7 +224,8 @@ test('spectator can join in the lobby and is not counted as a player', async ({ 
   const S = await game.player('WATCHER');
   await S.fill('#join-code', code);
   await S.click('[data-act=watch]');
-  await game.inLobby(S);
+  await S.waitForSelector('#s-lobby:not([hidden]) .code-big');
+  await expect(S.locator('#modal')).toBeHidden();                 // no safety reminder for someone who is not playing
   await expect(A.locator('.player', { hasText: 'WATCHER' })).toContainText('WATCHING');
   await A.click('[data-act=role][data-id] >> nth=1');
   await expect(A.locator('.foot-note')).toContainText('2 players');
@@ -280,9 +304,19 @@ test('practice round: plays against bots with no network, and you can walk by ta
   await A.click('[data-act=modal-yes]');
   await A.waitForSelector('#s-results:not([hidden])');
   await expect(A.locator('.rematch')).toContainText('PRACTICE AGAIN');
-  await A.click('[data-act=res-home]');
+  await A.click('[data-act=res-home]');                           // nobody else is in a practice lobby: no question asked
   await A.waitForSelector('#s-home:not([hidden])');
   expect(await A.evaluate(() => window.CH.geo.simulated)).toBe(false);
+  // Mid-round, the map menu has the way out.
+  await A.click('[data-act=practice]');
+  await A.waitForSelector('[data-act=open-map]');
+  await A.click('[data-act=open-map]');
+  await A.click('#map-btns [data-act=menu]');
+  await expect(A.locator('#modal [data-act=menu-leave]')).toContainText('Exit practice');
+  await A.click('#modal [data-act=menu-leave]');
+  await A.waitForSelector('#s-home:not([hidden])');
+  await expect(A.locator('#modal')).toBeHidden();
+  expect(await A.evaluate(() => window.CH.practice)).toBe(false);
   expect(A.errors).toEqual([]);
 });
 

@@ -19,8 +19,12 @@ const N = CONFIG.net;
 
 export function loadHostSave() {
   const s = store.get(HOST_SAVE_KEY);
-  if (!s || !s.G || s.G.v !== 4 || Date.now() - s.at > 12 * 3600 * 1000) return null;
+  if (!s || !s.G || s.G.v !== 5 || Date.now() - s.at > 12 * 3600 * 1000) return null;
   const now = Date.now();
+  // The save can be a couple of seconds old. Skip ahead in the event and
+  // chat numbering so nothing sent since then is mistaken for a repeat.
+  s.G.evN += 1000;
+  s.G.chatN += 1000;
   for (const p of Object.values(s.G.players)) {
     p.cid = null;
     p.conn = false;

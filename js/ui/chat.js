@@ -42,11 +42,15 @@ function renderChat() {
   if (app.ui.layer !== 'chat' || !s) return;
   if (!built) build();
   const sess = app.session;
-  // Team channels exist only during a match, and not for spectators.
-  const inMatch = sess.inMatch && s.me.role !== 'spectator';
+  // Team channels exist only during a match. Spectators see every player
+  // live, so during a match they can read "Everyone" but only write to
+  // each other.
+  const inMatch = sess.inMatch;
   const tab = inMatch ? app.ui.chatTab : 'all';
   const role = s.me.role;
-  const teamName = role === 'hunter' ? 'Hunter chat' : 'Prey chat';
+  const watching = role === 'spectator';
+  const teamName = role === 'hunter' ? 'Hunter chat' : watching ? 'Spectators' : 'Prey chat';
+  const readOnly = inMatch && watching && tab === 'all';
   sess.chatOpen = tab;
   sess.unread[tab] = 0;
 
@@ -64,10 +68,18 @@ function renderChat() {
         '<span class="msg-meta"><span class="mono ' + (m.role === 'hunter' ? 'hunter-ink' : m.role === 'spectator' ? 'lime-ink' : 'prey-ink') + '" translate="no">' + esc(m.name) + '</span>' +
         '<span class="muted">' + clock(Math.max(0, (m.T - s.headT) / 1000)) + '</span></span>' +
         '<span class="msg-text" translate="no">' + esc(m.text) + '</span></li>').join('')
-    : '<li class="chat-empty muted">' + (tab === 'team' ? 'Only your side can read this channel.' : 'Everyone in the match can read this channel.') + '</li>';
+    : '<li class="chat-empty muted">' + (tab === 'team' ? (watching ? 'Only spectators can read this channel.' : 'Only your side can read this channel.') : 'Everyone in the match can read this channel.') + '</li>';
   const box = $('#chat-list');
   if (setHTML(box, html)) box.scrollTop = box.scrollHeight;
-  for (const el of root.querySelectorAll('[data-ptt]')) el.hidden = !inMatch;
+  for (const el of root.querySelectorAll('[data-ptt]')) el.hidden = !inMatch || watching;
+  // Read-only channel: say why instead of silently dropping the message.
+  const input = $('#chat-input');
+  if (input.dataset.ro !== String(readOnly)) {
+    input.dataset.ro = String(readOnly);
+    input.disabled = readOnly;
+    input.placeholder = readOnly ? 'Read only for spectators' : 'Message';
+    root.querySelector('.send').disabled = readOnly;
+  }
 }
 
 act('chat-tab', (el) => {

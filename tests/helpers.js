@@ -35,7 +35,7 @@ class Game {
 
   async context(geo = HOME, opts = {}) {
     const ctx = await this.browser.newContext({
-      viewport: { width: 390, height: 844 }, hasTouch: true,
+      viewport: opts.viewport || { width: 390, height: 844 }, hasTouch: true,
       geolocation: geo, permissions: ['geolocation', 'microphone'],
       serviceWorkers: opts.serviceWorkers || 'block'
     });
@@ -83,8 +83,8 @@ class Game {
     return page;
   }
 
-  async join(name, code, geo) {
-    const page = await this.player(name, geo);
+  async join(name, code, geo, opts) {
+    const page = await this.player(name, geo, opts);
     await page.fill('#join-code', code);
     await page.click('.join-btn');
     await this.inLobby(page);

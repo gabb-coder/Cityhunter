@@ -16,23 +16,23 @@ export function installCatch(host) {
   const G = () => host.G;
 
   // Distance check between a hunter and a prey.
-  //   d        live distance in metres (null if either has never had a fix)
-  //   inRange  d <= rangeM, plus slack for the two phones' GPS accuracy
-  //   stale    one side has no fresh fix (GPS lost or offline)
+  //   inRange  within rangeM, plus slack for the two phones' GPS accuracy
+  //   stale    the prey has no fresh fix (GPS lost or offline): the PIN decides
+  //   why      'gps' when the hunter has no live fix. A hunter always needs
+  //            one, otherwise switching GPS off would widen their reach.
   function range(h, q, now = Date.now()) {
-    // Never had a fix at all: the PIN alone decides (if the config allows it).
-    if (!h.pos || !q.pos) return { d: null, inRange: C.allowWhenGpsStale, stale: true };
+    if (!h.pos || !host.fresh(h, now)) return { inRange: false, stale: false, why: 'gps' };
+    // The prey never had a fix at all: the PIN alone decides (if allowed).
+    if (!q.pos) return { inRange: C.allowWhenGpsStale, stale: true };
     const d = dist(h.pos, q.pos);
-    const slack = Math.min(h.pos.acc + q.pos.acc, C.accuracySlackMaxM);
-    const stale = !host.fresh(h, now) || !host.fresh(q, now);
-    let limit = C.rangeM + slack;
+    const stale = !host.fresh(q, now);
+    let limit = C.rangeM + Math.min(h.pos.acc + q.pos.acc, C.accuracySlackMaxM);
     if (stale) {
-      if (!C.allowWhenGpsStale) return { d, inRange: false, stale };
-      // Someone without a fix may have moved since: allow for walking pace.
-      const age = Math.max(now - h.posAt, now - q.posAt) / 1000;
-      limit += Math.min(age * 2, 200);
+      if (!C.allowWhenGpsStale) return { inRange: false, stale };
+      // The prey may have moved since their last fix: allow for walking pace.
+      limit += Math.min(((now - q.posAt) / 1000) * C.staleSlackMps, C.staleSlackMaxM);
     }
-    return { d, inRange: d <= limit, stale };
+    return { inRange: d <= limit, stale };
   }
 
   const inSafeHouse = (q) => {
@@ -47,8 +47,8 @@ export function installCatch(host) {
   // The hunter picked a target on the Confirm catch screen: the prey's phone
   // switches to the big-PIN screen.
   host.on('catch:start', (h, m) => {
-    const q = G().players[m.target];
-    if (h.role !== 'hunter' || G().phase !== 'live' || !q || q.role !== 'prey' || q.dropped) return;
+    const q = host.player(m.target);
+    if (h.role !== 'hunter' || h.dropped || G().phase !== 'live' || G().paused || !q || q.role !== 'prey' || q.dropped) return;
     clearTagsBy(h);
     if (range(h, q).inRange) q.tag = { by: h.id, T: G().T };
   });
@@ -57,14 +57,16 @@ export function installCatch(host) {
 
   host.on('catch:submit', (h, m) => {
     const g = G();
-    const q = g.players[m.target];
+    const q = host.player(m.target);
     const reply = (ok, reason, extra) => host.to(h, { k: 'catch:result', ok, reason, target: m.target, ...extra });
 
-    if (h.role !== 'hunter' || h.dropped || g.phase !== 'live' || g.paused) return reply(false, 'state');
+    if (h.role !== 'hunter' || h.dropped || g.phase !== 'live') return reply(false, 'state');
+    if (g.paused) return reply(false, 'paused');
     if (!q || q.role !== 'prey' || q.dropped) return reply(false, 'state');
     if (h.penaltyT > g.T) return reply(false, 'penalty', { lockSec: Math.ceil((h.penaltyT - g.T) / 1000) });
     if (h.lock.untilT > g.T) return reply(false, 'locked', { lockSec: Math.ceil((h.lock.untilT - g.T) / 1000) });
-    if (!range(h, q).inRange) return reply(false, 'range');
+    const r = range(h, q);
+    if (!r.inRange) return reply(false, r.why === 'gps' ? 'gps' : 'range');
     if (inSafeHouse(q)) return reply(false, 'safe');
 
     if (String(m.pin || '') !== q.pin) {
@@ -89,11 +91,6 @@ export function installCatch(host) {
     host.checkEnd();
   });
 
-  // "I've been caught": the prey opened the PIN screen themselves.
-  host.on('tagged:self', (q, m) => {
-    q.selfTag = q.role === 'prey' && !!m.on;
-  });
-
   host.hooks.live.push(() => {
     const g = G();
     for (const q of host.all()) if (q.tag && g.T - q.tag.T > TAG_TTL_MS) q.tag = null;
@@ -105,28 +102,17 @@ export function installCatch(host) {
     const now = Date.now();
     if (p.role === 'hunter') {
       v.me.lock = { triesLeft: C.maxWrongPins - p.lock.wrong, untilT: p.lock.untilT > g.T ? p.lock.untilT : 0 };
-      // Who can be caught right now. A live distance is only shown for prey
-      // already in range; everyone else is measured from their last ping.
+      // Who can be caught right now: yes or no only. The live distance to a
+      // prey is never sent, so this cannot be used to home in on one.
+      v.me.noFix = !host.fresh(p, now);
       v.targets = host.prey().map((q) => {
         const r = range(p, q, now);
-        return {
-          id: q.id, name: q.name, inRange: r.inRange, stale: r.stale, safe: inSafeHouse(q),
-          d: r.inRange && r.d != null ? Math.round(r.d) : p.pos && q.ping ? Math.round(dist(p.pos, q.ping)) : null
-        };
+        return { id: q.id, name: q.name, inRange: r.inRange, stale: r.stale, safe: inSafeHouse(q) };
       });
     } else if (p.role === 'prey') {
+      // Only a hunter who has started a catch on this prey is ever named.
       const by = p.tag ? g.players[p.tag.by] : null;
-      if (by && by.pos && p.pos) {
-        v.me.tag = { key: by.id + ':' + p.tag.T, by: by.name, d: Math.round(dist(by.pos, p.pos)) };
-      } else if (by) {
-        v.me.tag = { key: by.id + ':' + p.tag.T, by: by.name, d: null };
-      } else if (p.selfTag && p.pos) {
-        // Only name a hunter who is close enough to plausibly be the tagger,
-        // so this screen cannot be used as a hunter radar.
-        const near = host.hunters().filter((h) => host.fresh(h, now))
-          .map((h) => ({ h, d: dist(h.pos, p.pos) })).filter((x) => x.d <= C.nearHunterM).sort((a, b) => a.d - b.d)[0];
-        v.me.near = near ? { by: near.h.name, d: Math.round(near.d) } : null;
-      }
+      if (by) v.me.tag = { key: by.id + ':' + p.tag.T, by: by.name };
     }
   });
 }

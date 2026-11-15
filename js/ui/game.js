@@ -62,14 +62,26 @@ function updateMap() {
   map.pad.top = ($('#hud').offsetHeight || 100) + 24;
   map.pad.bottom = ($('#sheet').offsetHeight || 300) + 8;
   // Map buttons sit above the sheet, and above any alert card docked on it.
+  // Two docked cards (way back to the zone + GPS bar) stack, never overlap.
   let lift = 0;
+  const ozBottom = document.querySelector('#oz:not([hidden]) .oz-bottom');
   for (const el of document.querySelectorAll('#oz:not([hidden]) .oz-bottom, #gps-sheet.min:not([hidden])')) lift += el.offsetHeight + 12;
   $('#map-btns').style.bottom = map.pad.bottom + 12 + lift + 'px';
+  $('#s-game').style.setProperty('--oz-h', ozBottom ? ozBottom.offsetHeight + 12 + 'px' : '0px');
   const hud = $('#hud');
-  // Banners and toasts go under whichever top card is showing.
+  // The out-of-zone card sits under the HUD (the clock stays readable);
+  // banners and toasts go under whichever card is lowest.
   const ozTop = document.querySelector('#oz:not([hidden]) .oz-top');
-  const below = (ozTop ? ozTop.offsetTop + ozTop.offsetHeight : hud.offsetTop + hud.offsetHeight) + 8;
+  const hudBottom = hud.offsetTop + hud.offsetHeight;
+  if (ozTop) ozTop.style.top = hudBottom + 8 + 'px';
+  const below = (ozTop ? ozTop.offsetTop + ozTop.offsetHeight : hudBottom) + 8;
   $('#banners').style.top = below + 'px';
+  // Not enough room between the top cards and the docked ones (a small
+  // phone with two alerts up): keep the essential buttons, drop the rest.
+  const btns = $('#map-btns');
+  btns.classList.remove('tight');
+  const room = btns.offsetTop - (below + $('#banners').offsetHeight);
+  if (room < 0) btns.classList.add('tight');
   // Toasts drop in under the HUD and banners instead of covering them.
   $('#toasts').style.top = app.ui.layer ? '' : below + $('#banners').offsetHeight + ($('#banners').offsetHeight ? 8 : 0) + 'px';
   $('#s-game').style.setProperty('--sheet-h', map.pad.bottom + 'px');
@@ -90,7 +102,7 @@ function updateMap() {
   for (const l of s.live) {
     items.push({
       id: 'l' + l.id, type: 'dot', tone: l.kind === 'mate' || l.role === 'hunter' ? 'hunter' : 'prey', lat: l.lat, lng: l.lng,
-      label: l.name + ' · ' + (l.kind === 'revealed' ? 'LIVE · out of zone' : l.stale ? 'last seen' : 'live'), strong: l.kind === 'revealed'
+      label: l.name + ' · ' + (l.kind === 'revealed' ? (l.stale ? 'last seen · ' : 'LIVE · ') + (l.why === 'help' ? 'after help pause' : 'out of zone') : l.stale ? 'last seen' : 'live'), strong: l.kind === 'revealed'
     });
   }
   const fx = me.fx || {};
@@ -109,6 +121,8 @@ function updateMap() {
 
 let lastPingNo = null;
 let lastMapAt = 0;
+let sheetStale = false;   // a redraw was skipped while the talk button was held
+let sheetRole = null;
 
 // ---------------------------------------------------------------- HUD
 function gpsChip() {
@@ -131,7 +145,18 @@ function renderHud(s) {
       '</div>' +
       '<div class="hud-ping"><span class="label" id="hud-ping-label">' + (hunter ? 'Next prey ping' : 'Next ping') + '</span>' +
         '<div class="bar"><i id="hud-bar"></i></div><span class="mono" id="hud-ping">00:00</span></div>' +
+      (s.zone && s.zone.final ? '<div class="hud-zone" id="hud-zone" hidden>' + icon('lockdown', 16) + '<span id="hud-zone-text"></span></div>' : '') +
     '</div>');
+}
+
+// One quiet line in the HUD while the zone is closing in.
+function tickZoneLine(s, T) {
+  const el = $('#hud-zone');
+  if (!el) return;
+  const z = s.zone;
+  const on = !!z && !!z.final && s.phase === 'live' && T >= z.shrinkStartT && T < z.shrinkEndT;
+  if (el.hidden === on) el.hidden = !on;
+  if (on) setText($('#hud-zone-text'), 'Zone closing in · ' + metres(z.r) + ' now, ' + metres(z.final) + ' in ' + clock((z.shrinkEndT - T) / 1000));
 }
 
 function tickHud() {
@@ -157,6 +182,7 @@ function tickHud() {
     lastPingNo = s.pingNo;
   }
   if (s.me.penaltyT) setText($('#catch-sub'), catchSub(s));
+  tickZoneLine(s, T);
   // Battery saver redraws the map less often.
   const every = app.saver && app.saver.on ? CONFIG.saver.mapRefreshMs : 0;
   if (performance.now() - lastMapAt >= every - 20) {
@@ -179,29 +205,47 @@ function proximity(s) {
   return best;
 }
 
+// Banners are ranked: when there is not room for all of them the urgent
+// ones win. 0 = safety, 1 = act now, 2 = match state, 4 = information,
+// 6 = tips. Hooks call out.add(rank, html); a plain push counts as 4.
 let lastProx = '';
 function renderBanners(s) {
   const out = [];
+  out.add = (rank, html) => out.push({ rank, html });
   const T = app.session.T();
   if (s.paused && !s.help) {   // a help request has its own banner
-    out.push('<div class="banner neutral" role="status">' + icon('pause', 20, 2.5) + '<span>' +
+    out.add(2, '<div class="banner neutral" role="status">' + icon('pause', 20, 2.5) + '<span>' +
       (s.pauseReason === 'isolated' ? 'Paused: waiting for players to reconnect' : 'Match paused by the host') + '</span></div>');
   }
   for (const fn of bannerHooks) fn(out, s, T);
   if (s.phase === 'headstart' && s.me.role === 'hunter') {
     const hold = s.me.hold;
-    out.push(hold && hold.out
-      ? '<div class="banner hunter" role="alert">' + icon('warn', 20, 2.5) + '<span>Go back to your start point: you are ' + metres(hold.d) + ' away. Out of position at release means no catches for ' + CONFIG.fair.holdPenaltySec + ' s.</span></div>'
-      : '<div class="banner hunter" role="status">' + icon('lock', 20, 2.5) + '<span>Hold your position until the head start ends</span></div>');
+    if (hold && hold.out) {
+      out.add(1, '<div class="banner hunter" role="alert">' + icon('warn', 20, 2.5) + '<span>Go back to your start point: you are ' + metres(hold.d) + ' away. Out of position at release means no catches for ' + CONFIG.fair.holdPenaltySec + ' s.</span></div>');
+    } else if (s.me.holdWait) {
+      out.add(1, '<div class="banner hunter" role="alert">' + icon('noGps', 20, 2.5) + '<span>Waiting for your GPS fix. No fix at your start point by the end of the head start means no catches for ' + CONFIG.fair.holdPenaltySec + ' s.</span></div>');
+    } else {
+      out.add(4, '<div class="banner hunter" role="status">' + icon('lock', 20, 2.5) + '<span>Hold your position until the head start ends</span></div>');
+    }
+  }
+  if (s.me.helpRevealT && s.me.helpRevealT > T) {
+    out.add(2, '<div class="banner hunter" role="status">' + icon('eye', 20) + '<span>Hunters can see you live for ' + clock((s.me.helpRevealT - T) / 1000) + ' (after the help pause)</span></div>');
   }
   const prox = proximity(s);
   if (prox) {
-    out.push('<div class="banner hunter" role="status">' + icon('warn', 20, 2.5) + '<span>' + esc(prox.name) + '’s last ping was ' + metres(Math.round(prox.d / 10) * 10) + ' from you</span></div>');
+    out.add(1, '<div class="banner hunter" role="status">' + icon('warn', 20, 2.5) + '<span>' + esc(prox.name) + '’s last ping was ' + metres(Math.round(prox.d / 10) * 10) + ' from you</span></div>');
     if (lastProx !== prox.name) cue('near');
   }
   lastProx = prox ? prox.name : '';
-  if (app.ui.talking) out.push('<div class="banner neutral" role="status">' + icon('mic', 20) + '<span>' + esc(app.ui.talking) + ' is talking</span></div>');
-  setHTML($('#banners'), out.slice(0, 3).join(''));
+  if (app.ui.talking) out.add(4, '<div class="banner neutral" role="status">' + icon('mic', 20) + '<span>' + esc(app.ui.talking) + ' is talking</span></div>');
+
+  // How many fit: fewer on a short screen or while an alert card is up.
+  const short = window.innerHeight < 700;
+  const crowded = !!document.querySelector('#oz:not([hidden])');
+  const max = crowded ? 1 : short ? 2 : 3;
+  const ranked = out.map((b, i) => (typeof b === 'string' ? { rank: 4, html: b, i } : { ...b, i }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i);
+  setHTML($('#banners'), ranked.slice(0, max).map((b) => b.html).join(''));
 }
 
 // ---------------------------------------------------------------- sheet
@@ -253,9 +297,11 @@ function nearestPrey(s) {
 
 function catchSub(s) {
   if (s.phase === 'headstart') return 'Locked until the head start ends';
+  if (s.paused) return 'Match paused';
   if (s.me.penaltyT) return 'Head-start penalty \u00B7 unlocks in ' + clock((s.me.penaltyT - app.session.T()) / 1000);
-  const t = (s.targets || []).filter((x) => x.inRange).sort((a, b) => a.d - b.d)[0];
-  if (t) return t.name + ' is ' + metres(t.d) + ' away · in range';
+  if (s.me.noFix || app.geo.lost) return 'No GPS fix: you cannot catch without one';
+  const t = (s.targets || []).filter((x) => x.inRange && !x.safe)[0];
+  if (t) return t.name + ' is in range';
   const n = nearestPrey(s);
   if (n) return 'Nearest: ' + n.name + ', last seen ' + metres(n.d) + ' away';
   return 'No prey pinged yet';
@@ -264,8 +310,18 @@ function catchSub(s) {
 function renderSheet(s) {
   const me = s.me;
   const T = app.session.T();
+  // Holding the talk button: redrawing the sheet would replace the button
+  // under the finger and cut the transmission off. Draw again on release.
+  if (app.voice && app.voice.holding() && sheetRole === me.role) {
+    sheetStale = true;
+    return;
+  }
+  sheetStale = false;
+  sheetRole = me.role;
   const min = app.ui.sheetMin;
-  const handle = '<button type="button" class="sheet-handle" data-act="sheet-toggle" aria-expanded="' + !min + '" aria-label="' + (min ? 'Expand panel' : 'Collapse panel') + '"><span></span></button>';
+  // Folded, the handle says what is behind it (and shows the balance).
+  const handle = '<button type="button" class="sheet-handle' + (min ? ' closed' : '') + '" data-act="sheet-toggle" aria-expanded="' + !min + '" aria-label="' + (min ? 'Show wallet, shop and abilities' : 'Hide wallet, shop and abilities') + '"><span class="grip"></span>' +
+    (min && me.role !== 'spectator' ? '<span class="handle-text">' + icon('coin', 16) + '<span class="mono" translate="no">' + me.gc + ' GC</span><span>· Shop and abilities</span>' + icon('chevUp', 16, 2.5) + '</span>' : '') + '</button>';
   let html;
   if (me.role === 'spectator') {
     html = handle +
@@ -285,7 +341,7 @@ function renderSheet(s) {
     const q = ABILITIES[HUNTER_QUICK_ABILITY];
     const qn = me.inv[q.id] || 0;
     const locked = s.phase !== 'live';
-    const noCatch = locked || !!me.penaltyT;
+    const noCatch = locked || s.paused || !!me.penaltyT;
     const quickLabel = qn > 0 ? q.name + ' ×' + qn : me.gc >= q.cost ? q.name + ' · ' + q.cost : q.name + ' · need ' + (q.cost - me.gc);
     const extra = Object.values(ABILITIES).filter((a) => a.side === 'hunter' && a.id !== q.id && ((me.inv[a.id] || 0) > 0 || slotState(a, me, T).on));
     html = handle +
@@ -321,14 +377,16 @@ function mapButtons(s) {
   const extra = mapButtonHooks.map((fn) => fn(s)).filter(Boolean);
   const side = extra.filter((x) => x.col === 'side').map((x) => x.html).join('');
   const main = extra.filter((x) => x.col !== 'side').map((x) => x.html).join('');
+  const watching = s.me.role === 'spectator';
   setHTML($('#map-btns'),
     '<div class="mb-col">' +
       (s.me.host ? '<button type="button" class="icon-btn" data-act="admin" aria-label="Host console">' + icon('gear', 22) + '</button>' : '') +
-      (s.me.role === 'spectator' ? '' : '<button type="button" class="icon-btn help-btn" data-act="help" aria-label="I need help: pause the match">' + icon('help', 22) + '</button>') +
+      (watching ? '' : '<button type="button" class="icon-btn help-btn" data-act="help" aria-label="I need help: pause the match">' + icon('help', 22) + '</button>') +
       side +
+      '<button type="button" class="icon-btn" data-act="menu" aria-label="Menu: sound, battery saver, leave match">' + icon('menu', 22, 2.25) + '</button>' +
     '</div>' +
     '<div class="mb-col">' + main + themeButton() +
-      '<button type="button" class="icon-btn" data-act="recenter" aria-label="Recenter map on me">' + icon('recenter', 22) + '</button>' +
+      '<button type="button" class="icon-btn" data-act="recenter" aria-label="' + (watching ? 'Show the whole play zone' : 'Recenter map on me') + '">' + icon('recenter', 22) + '</button>' +
     '</div>');
 }
 
@@ -345,6 +403,15 @@ function renderGame() {
 
 // ---------------------------------------------------------------- actions
 act('recenter', () => {
+  const s = snap();
+  // A spectator has no position of their own: show the whole zone instead.
+  if (s && s.me.role === 'spectator') {
+    if (s.zone) {
+      app.map.follow = false;
+      app.map.frame(s.zone);
+    }
+    return;
+  }
   if (!app.geo.fix) return toast('Waiting for a GPS fix');
   app.map.recenter(app.geo.fix);
 });
@@ -353,6 +420,10 @@ act('sheet-toggle', () => {
   app.ui.sheetMin = !app.ui.sheetMin;
   render();
 });
+// The talk button was let go: draw whatever changed while it was held.
+for (const type of ['pointerup', 'pointercancel', 'keyup']) {
+  document.addEventListener(type, () => setTimeout(() => sheetStale && render(), 0));
+}
 act('shop', () => setLayer('shop'));
 act('chat', () => setLayer('chat'));
 act('use', (el) => app.session.send({ k: 'use', id: el.dataset.id }));

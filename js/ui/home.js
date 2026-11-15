@@ -1,10 +1,10 @@
 // Screen 1: Home.
 
-import { $, esc, store, cleanCode, showCode } from '../util.js';
+import { $, esc, store, cleanCode, showCode, clock, setHTML, setText } from '../util.js';
 import { icon } from '../icons.js';
 import { CONFIG } from '../config.js';
 import { app } from '../state.js';
-import { act, onRender, themeButton, toast, screen } from './core.js';
+import { act, onRender, onTick, themeButton, toast, screen } from './core.js';
 import { soundButton } from './safety.js';
 import { reportLink } from './extras.js';
 import { i18n } from '../i18n.js';
@@ -23,7 +23,7 @@ function build() {
         '<div class="home-build"><span class="lime-ink">' + icon('logo', 28, 2.5) + '</span>' +
           '<span class="mono">BUILD ' + CONFIG.version + '</span>' +
           '<span id="home-theme" class="home-theme"></span></div>' +
-        '<h1 class="head home-title" translate="no">CITY<br>HUNTER</h1>' +
+        '<h1 class="head home-title" translate="no">CITY <br>HUNTER</h1>' +
         '<p class="home-pitch">Real streets, real chase. Hunters track the pings, prey run for cover, and every catch flips a player to the other side.</p>' +
       '</div>' +
       '<ol class="steps">' +
@@ -31,7 +31,9 @@ function build() {
       '</ol>' +
       '<div class="grow"></div>' +
       '<form class="home-form" id="home-form" novalidate>' +
+        '<div id="home-joining" aria-live="polite"></div>' +
         '<div id="home-resume"></div>' +
+        '<div id="home-invite"></div>' +
         '<div id="home-install"></div>' +
         '<label class="label" for="callsign">Your callsign</label>' +
         '<input id="callsign" class="field" maxlength="' + CONFIG.lobby.nameMaxLength + '" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done">' +
@@ -65,9 +67,17 @@ function build() {
     join();
   });
 
-  // ?join=CODE links from the share button.
+  // ?join=CODE links from the share button: the code is filled in, so
+  // joining becomes the main action and hosting steps back.
   const q = new URLSearchParams(location.search).get('join');
-  if (q) code.value = cleanCode(q).slice(0, CONFIG.lobby.codeLength);
+  if (q && cleanCode(q).length === CONFIG.lobby.codeLength) {
+    code.value = cleanCode(q).slice(0, CONFIG.lobby.codeLength);
+    root.querySelector('.home').classList.add('invited');
+    root.querySelector('.join-btn').classList.replace('btn-line', 'btn-lime');
+    root.querySelector('[data-act="host"]').classList.replace('btn-lime', 'btn-line');
+    setTimeout(() => root.querySelector('.join-row').scrollIntoView({ block: 'center' }), 250);
+    $('#home-invite').innerHTML = '<p class="card invite-note">' + icon('check', 18, 2.5) + '<span><strong class="mono" translate="no">' + esc(showCode(code.value)) + '</strong> <span>You were invited to this lobby. Pick a callsign and tap JOIN.</span></span></p>';
+  }
 }
 
 function callsign() {
@@ -113,6 +123,40 @@ act('lang', () => {
   renderHome();
 });
 
+act('join-cancel', () => app.go.cancelJoin());
+
+const SPINNER = '<svg class="spin" width="36" height="36" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="21" fill="none" stroke-width="5" class="spin-track"/><path d="M26 5 A21 21 0 0 1 47 26" fill="none" stroke-width="5" stroke-linecap="round" class="spin-arc"/></svg>';
+
+// While a join is under way (no word from the host yet): say so, and lock
+// the form so a second tap cannot start another one.
+function renderJoining() {
+  const j = app.session && !app.session.snap ? app.ui.joining : null;
+  const box = $('#home-joining');
+  for (const el of root.querySelectorAll('#home-form input, #home-form button:not([data-act="join-cancel"])')) {
+    if (el.closest('#home-joining, .home-links')) continue;
+    el.disabled = !!j;
+  }
+  root.querySelector('.home').classList.toggle('busy', !!j);
+  if (!j) return setHTML(box, '');
+  setHTML(box,
+    '<div class="card card-strong joining" role="status">' + SPINNER +
+      '<span class="joining-text"><strong><span>' + (j.rejoin ? 'Rejoining' : j.watch ? 'Opening' : 'Joining') + '</span> <span class="mono" translate="no">' + esc(showCode(j.code)) + '</span>…</strong>' +
+        '<span class="small muted" id="joining-note"></span></span>' +
+      '<button type="button" class="btn btn-sm" data-act="join-cancel">Cancel</button>' +
+    '</div>');
+  tickJoining();
+}
+
+function tickJoining() {
+  const j = app.session && !app.session.snap ? app.ui.joining : null;
+  const el = $('#joining-note');
+  if (!j || !el) return;
+  const waited = (Date.now() - j.since) / 1000;
+  setText(el, j.rejoin
+    ? (waited < 6 ? 'Looking for the host' : 'Waiting for the host to come back · ' + clock(CONFIG.net.hostOfflineHoldSec - waited) + ' left')
+    : (waited < 6 ? 'Contacting the host' : 'Still trying. Check the code and your connection.'));
+}
+
 act('resume', () => app.go.resume());
 act('resume-forget', () => {
   app.go.forget();
@@ -124,6 +168,7 @@ function renderHome() {
   $('#home-theme').innerHTML = soundButton('sm') + themeButton('sm');
   $('#home-lang').innerHTML = langButton();
   renderInstall();
+  renderJoining();
   const r = app.go.resumable ? app.go.resumable() : null;
   $('#home-resume').innerHTML = r
     ? '<div class="card card-strong resume">' +
@@ -173,4 +218,5 @@ act('install', async () => {
 
 build();
 onRender(renderHome);
+onTick(() => screen() === 'home' && tickJoining());
 app.bus.on('screen', (name) => name === 'home' && renderHome());

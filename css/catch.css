@@ -37,7 +37,10 @@
 .pin-box.filled { border-color: var(--muted); }
 .pin-status { min-height: 20px; font-size: 14px; font-weight: var(--fw-semi); }
 
-.keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 24px; }
+/* Fixed under the scrolling part of the screen, so it is always reachable. */
+.keypad { flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 16px max(20px, env(safe-area-inset-bottom)); background: var(--page); border-top: 1px solid var(--bd-soft); }
+.catch { padding-bottom: 12px; }
+.targets-rest { font-size: 14px; line-height: 1.4; }
 .key {
   height: 60px; border-radius: 14px; font-size: 26px;
   border: var(--bd-strong-w) solid var(--bd-strong); background: var(--raised);
@@ -47,8 +50,13 @@
 .key:disabled { opacity: 0.4; }
 .key:active:not(:disabled) { background: var(--lime); color: var(--on-lime); }
 @media (max-height: 700px) {
-  .key { height: 52px; }
-  .catch { gap: 10px; }
+  .key { height: 46px; font-size: 22px; }
+  .keypad { gap: 6px; padding-top: 8px; }
+  .catch { gap: 8px; padding-top: 10px; }
+  .catch-title h1 { font-size: 24px; }
+  .catch-title p { display: none; }
+  .target { min-height: 48px; }
+  .pin-box { height: 48px; font-size: 26px; }
 }
 
 .catch-done { flex: 1; display: flex; flex-direction: column; padding: 24px 20px 0; }
