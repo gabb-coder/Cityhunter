@@ -9,7 +9,7 @@
 // position is shown to every hunter until they are back inside.
 
 import { CONFIG } from './config.js';
-import { dist } from './util.js';
+import { zoneContains, inPoly } from './geom.js';
 
 export function installSafety(host) {
   const G = () => host.G;
@@ -47,11 +47,28 @@ export function installSafety(host) {
         if (g.T - p.gps.lostT > CONFIG.gps.graceSec * 1000) graceOut(p);
       }
 
+      // ---- no-go areas (everyone): a warning, and the host hears about it ----
+      if (fresh && g.nogo && g.nogo.length) {
+        const inside = g.nogo.some((area) => inPoly(p.pos, area));
+        if (inside && p.nogo.sinceT == null) {
+          p.nogo = { sinceT: g.T, told: false };
+          host.dirty = true;
+        } else if (!inside && p.nogo.sinceT != null) {
+          p.nogo = { sinceT: null, told: false };
+          host.dirty = true;
+        }
+        if (inside && !p.nogo.told && g.T - p.nogo.sinceT >= CONFIG.zone.noGoTellHostSec * 1000) {
+          p.nogo.told = true;
+          const boss = g.players[g.hostPid];
+          if (boss && boss !== p) host.note(boss, p.name + ' has been in a no-go area for ' + CONFIG.zone.noGoTellHostSec + ' s', 'hunter');
+        }
+      }
+
       // ---- zone (prey only) ----
       if (p.role !== 'prey' || !z) continue;
       // Without a fresh fix nobody can say they came back in, so a prey who
       // was last seen outside stays "outside": the countdown keeps running.
-      const outside = fresh ? dist(p.pos, z) > z.r : p.out.sinceT != null;
+      const outside = fresh ? !zoneContains(z, p.pos) : p.out.sinceT != null;
       if (outside) {
         if (p.out.sinceT == null) {
           p.out.sinceT = g.T;
@@ -119,6 +136,7 @@ export function installSafety(host) {
     v.me.out = { sinceT: p.out.sinceT, revealed: p.out.revealed };
     v.me.gps = { graceOut: p.gps.graceOut };
     if (p.helpRevealT > g.T) v.me.helpRevealT = p.helpRevealT;
+    if (p.nogo && p.nogo.sinceT != null) v.me.nogo = true;
     if (p.role === 'hunter') {
       for (const q of host.prey()) {
         const why = q.out.revealed ? 'zone' : q.helpRevealT > g.T ? 'help' : null;

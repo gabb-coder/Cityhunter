@@ -305,6 +305,7 @@ test('small phone (360 x 640): the next step is always on screen', async ({ game
   await expect(B.locator('.targets .target')).toHaveCount(2);
   await expect(B.locator('.targets-rest')).toContainText('Too far: JUNO, KESTREL');
   for (const k of ['1', '3', '0', 'back']) expect(await onScreen(B, '[data-act=key][data-k="' + k + '"]')).toBe(true);
+  expect(await onScreen(B, '[data-act=scan-open]')).toBe(true);
   expect(await onScreen(B, '[data-act=catch-cancel]')).toBe(true);
   expect(await onScreen(B, '.pin-boxes')).toBe(true);
   if (process.env.SHOTS) {
@@ -316,6 +317,13 @@ test('small phone (360 x 640): the next step is always on screen', async ({ game
     await C.setViewportSize(SMALL);
     await C.screenshot({ path: process.env.SHOTS + '/small-tagged-or-map-prey.png' });
   }
+  // The prey's side on a small phone: PIN and scan code both on screen, no scrolling.
+  // (VIPER's Confirm catch picked GABRIEL, the first prey in range, so GABRIEL's phone shows it.)
+  await A.setViewportSize(SMALL);
+  await A.waitForSelector('#s-tagged:not([hidden]) .tagged-qr');
+  expect(await onScreen(A, '.tagged-pin')).toBe(true);
+  expect(await onScreen(A, '.tagged-qr')).toBe(true);
+  expect(await onScreen(A, '[data-act=tag-back]')).toBe(true);
   expect(A.errors.concat(B.errors, C.errors, D.errors, E.errors)).toEqual([]);
 });
 

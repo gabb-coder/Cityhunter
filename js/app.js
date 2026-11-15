@@ -40,6 +40,7 @@ import { installAwards } from './host-awards.js';
 import './update.js';
 import './ui/info.js';
 import './ui/history.js';
+import './ui/scan.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab

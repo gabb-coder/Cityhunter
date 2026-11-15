@@ -318,7 +318,49 @@ export const ZH = {
     'as prey': '作为猎物',
     'catches': '次抓捕',
     'on foot': '步行',
-    'from a hunter': '距猎人'
+    'from a hunter': '距猎人',
+
+    // ---- v2.3: scan to catch, drawn zones, no-go areas ----
+    'Scan their code': '扫描对方的二维码',
+    'Point the camera at the code on the prey’s PIN screen.': '把相机对准猎物 PIN 画面上的二维码。',
+    'Starting the camera…': '正在打开相机…',
+    'Looking for a code…': '正在寻找二维码…',
+    'Type the PIN instead': '改为输入 PIN',
+    'That is not a catch code. Point at the code on the prey’s PIN screen.': '这不是抓捕二维码。请对准猎物 PIN 画面上的二维码。',
+    'The camera could not be used. Allow camera access for this site, or type the PIN instead.': '无法使用相机。请允许本网站使用相机，或改为输入 PIN。',
+    'That code is not from a prey in this match.': '这个二维码不属于本局的猎物。',
+    'Turn your screen to the hunter. They scan the code or type the PIN.': '把屏幕转向猎人。对方扫码或输入 PIN。',
+    'Drawn on the map by the host': '由房主在地图上绘制',
+    'Drawn shape': '自定义形状',
+    '1 no-go area marked': '已标记 1 个禁入区域',
+    'Map for placing the play zone': '用于设置游戏区域的地图',
+    'Circle': '圆形',
+    'Draw shape': '绘制形状',
+    'No-go areas': '禁入区域',
+    'Tap the map to put down the corners of the play zone. At least 3.': '点按地图放下游戏区域的各个角，至少 3 个。',
+    'Tap to add another corner, or set the zone.': '点按可再加一个角，或直接确定区域。',
+    'Tap the map around an area nobody should enter: a road, a building site.': '在任何人都不该进入的区域周围点按地图：例如马路、工地。',
+    'Keep tapping: an area needs at least 3 corners.': '继续点按：一个区域至少需要 3 个角。',
+    'Tap to add a corner, or start another area.': '点按可加一个角，或开始画另一个区域。',
+    'Undo corner': '撤销一个角',
+    'Clear shape': '清除形状',
+    'Another area': '再画一个',
+    'Clear all': '全部清除',
+    '1 no-go area': '1 个禁入区域',
+    'shown on everyone’s map': '会显示在所有人的地图上',
+    'Put down at least 3 corners, or switch to Circle': '至少放下 3 个角，或切换到圆形',
+    'The sides of the shape cross. Undo a corner and try again.': '形状的边相互交叉了。撤销一个角再试。',
+    'That shape is too small to play in': '这个形状太小，没法玩',
+    'That shape cannot be used as a zone. Draw it again without crossing lines.': '这个形状不能用作游戏区域。请重新绘制，边不要交叉。',
+    'You are in a no-go area. Leave it now.': '你在禁入区域内。请立刻离开。',
+    'NO-GO': '禁入',
+
+    // ---- v2.4: camera privacy ----
+    'Camera': '相机',
+    'The camera is on only while the scan screen is open, to read the code on another player’s phone. The picture is read on your phone and is never sent or saved.': '只有在扫码画面打开时相机才会开启，用来读取其他玩家手机上的二维码。画面只在你的手机上读取，不会被发送或保存。',
+
+    // ---- v2.4: zone editor labels ----
+    'Zone tool': '区域工具'
   },
 
   patterns: [
@@ -449,10 +491,19 @@ export const ZH = {
     // ---- v2.3: update, how to play, privacy, awards, past matches ----
     ['Prey earn {n} Glowcoin for each ping they survive, to spend on abilities in the Shop.', '猎物每撑过一次定位可获得 {0} 荧光币，可在商店里购买技能。'],
     ['Hunters: get within {n} m, tag the prey with a light touch, then tap CATCH.', '猎人：靠近到 {0} 米内，轻轻碰一下猎物，然后点“抓捕”。'],
-    ['The prey’s phone shows a {n}-digit PIN. Type it in to confirm the catch.', '猎物的手机会显示一个 {0} 位 PIN。输入它来确认抓捕。'],
+    ['The prey’s phone shows a code and a {n}-digit PIN. Scan the code with your camera, or type the PIN.', '猎物的手机会显示一个二维码和一个 {0} 位 PIN。用相机扫码，或者输入 PIN。'],
     ['survived {n}', '存活 {0}'],
     ['{n} awards', '{0} 个奖项'],
     ['{n} players', '{0} 名玩家'],
-    ['caught {}', '抓到了 {0}']
+    ['caught {}', '抓到了 {0}'],
+
+    // ---- v2.3: scan to catch, drawn zones, no-go areas ----
+    ['{n} ha', '{0} 公顷'],
+    ['{n} m²', '{0} 平方米'],
+    ['{n} no-go areas marked', '已标记 {0} 个禁入区域'],
+    ['{n} no-go areas', '{0} 个禁入区域'],
+    ['A shape can have up to {n} corners', '一个形状最多 {0} 个角'],
+    ['{} has been in a no-go area for {n} s', '{0} 已在禁入区域内停留 {1} 秒'],
+    ['Zone closing in · {n}% of full size now, {n}% in {n}', '区域正在缩小 · 现在是原来的 {0}%，{2} 后缩到 {1}%']
   ]
 };

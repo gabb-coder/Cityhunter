@@ -137,7 +137,7 @@ bannerHooks.push((out, s, T) => {
 // Where the zone will end up.
 mapItemHooks.push((items, s) => {
   const z = s.zone;
-  if (z && z.final && z.r > z.final + 2) items.push({ id: 'final', type: 'area', tone: 'lime', lat: z.lat, lng: z.lng, r: z.final, label: 'Final zone' });
+  if (z && z.final && !z.poly && z.r > z.final + 2) items.push({ id: 'final', type: 'area', tone: 'lime', lat: z.lat, lng: z.lng, r: z.final, label: 'Final zone' });
 });
 
 // ---------------------------------------------------------------- team map pins

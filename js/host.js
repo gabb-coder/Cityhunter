@@ -17,6 +17,7 @@
 
 import { CONFIG, MODES, ECONOMY, RULE_OPTIONS } from './config.js';
 import { randomDigits, uid, own } from './util.js';
+import { cleanPoly, polyCentre, polyRadius, scalePoly } from './geom.js';
 
 function matchFields() {
   return {
@@ -29,6 +30,7 @@ function matchFields() {
     helpRevealT: 0,               // shown live to hunters until then (after a help pause)
     gps: { lostAt: 0, graceOut: false, told: false },
     out: { sinceT: null, revealed: false },
+    nogo: { sinceT: null, told: false },
     caughtT: null, caughtBy: null, caughtWhy: null, caughtAt: null,
     catches: 0, pings: 0, closest: null,
     tag: null,
@@ -41,14 +43,14 @@ function matchFields() {
 
 function newGame(code) {
   return {
-    v: 5, code,
+    v: 6, code,
     phase: 'lobby',               // lobby | headstart | live | ended
     mode: 'DEAD_RECKONING',
     rules: { ...MODES.DEAD_RECKONING.rules },
     round: 0,
     T: 0, headT: 0, endT: 0, nextPingT: 0, pingNo: 0, shrink: null,
     paused: false, pauseReason: null,
-    zone: null, zoneCenter: null, lock: null, help: null,
+    zone: null, zoneCenter: null, zoneShape: null, nogo: [], lock: null, help: null,
     players: {}, order: [], hostPid: null, hunterStack: [],
     decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [], spectator: [] },
     evN: 0, chatN: 0,
@@ -135,7 +137,14 @@ export class Host {
       out.shrinkStartT = Math.round(a);
       out.shrinkEndT = Math.round(b);
     }
-    out.r = Math.round(z.r * shrink * (lock ? lock.factor : 1));
+    const k = shrink * (lock ? lock.factor : 1);
+    out.r = Math.round(z.r * k);
+    // A drawn zone shrinks the same way: the whole shape, towards its centre.
+    if (z.poly) {
+      out.poly = k === 1 ? z.poly : scalePoly(z.poly, z, k);
+      out.scale = +k.toFixed(3);
+      if (to < 1) out.finalPoly = scalePoly(z.poly, z, to);
+    }
     return out;
   }
 
@@ -369,6 +378,26 @@ export class Host {
         const z = m.zone;
         const ok = z && isFinite(z.lat) && isFinite(z.lng) && Math.abs(z.lat) <= 90 && Math.abs(z.lng) <= 180;
         G.zoneCenter = ok ? { lat: Number(z.lat), lng: Number(z.lng) } : null;
+        if (!ok) {                // "Reset": back to a circle around the host, nothing marked
+          G.zoneShape = null;
+          G.nogo = [];
+        }
+      }
+      // A zone drawn corner by corner (null = back to a circle).
+      if ('shape' in m) {
+        const Z = CONFIG.zone;
+        const poly = m.shape ? cleanPoly(m.shape, { maxCorners: Z.maxCorners, minAreaM2: Z.minAreaM2, maxSpanM: Z.maxSpanM }) : null;
+        if (m.shape && !poly) this.note(p, 'That shape cannot be used as a zone. Draw it again without crossing lines.');
+        else {
+          G.zoneShape = poly;
+          if (poly) G.zoneCenter = polyCentre(poly);
+        }
+      }
+      // No-go areas: marked on everyone's map, with a warning for anyone inside.
+      if ('nogo' in m) {
+        const Z = CONFIG.zone;
+        G.nogo = (Array.isArray(m.nogo) ? m.nogo : []).slice(0, Z.maxNoGo)
+          .map((a) => cleanPoly(a, { maxCorners: Z.maxCorners, maxSpanM: Z.maxSpanM })).filter(Boolean);
       }
       if (m.hunters === 1) {
         const pool = this.all().filter((q) => q.role === 'prey');
@@ -431,7 +460,12 @@ export class Host {
     G.nextPingT = G.headT + (CONFIG.ping.firstPingAtRelease ? 0 : G.rules.pingSec * 1000);
     G.pingNo = 0;
     G.shrink = this.shrinkWindow();
-    G.zone = { lat, lng, r: G.rules.zoneRadiusM };
+    if (G.zoneShape) {
+      const centre = polyCentre(G.zoneShape);
+      G.zone = { lat: centre.lat, lng: centre.lng, r: Math.round(polyRadius(centre, G.zoneShape)), poly: G.zoneShape };
+    } else {
+      G.zone = { lat, lng, r: G.rules.zoneRadiusM };
+    }
     G.lock = null;
     G.help = null;
     G.decoys = [];
@@ -636,6 +670,8 @@ export class Host {
       headT: G.headT, endT: G.endT, nextPingT: G.nextPingT,
       zone: this.zoneNow(),
       zoneCenter: G.phase === 'lobby' ? G.zoneCenter : undefined,
+      zoneShape: G.phase === 'lobby' ? G.zoneShape : undefined,
+      nogo: G.nogo && G.nogo.length ? G.nogo : undefined,
       players: this.all().map((q) => ({
         id: q.id, name: q.name, role: q.role, ready: q.ready, conn: q.conn,
         host: this.isHost(q), you: q === p, dropped: q.dropped,

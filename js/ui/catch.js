@@ -8,6 +8,7 @@ import { CONFIG, ECONOMY } from '../config.js';
 import { app, snap } from '../state.js';
 import { act, onRender, onTick, render, setLayer, toast } from './core.js';
 import { bannerHooks } from './game.js';
+import { openScanner, qrSvg, scanText } from './scan.js';
 
 const C = CONFIG.catch;
 const N = C.pinLength;
@@ -69,6 +70,23 @@ act('key', (el) => {
   st.error = null;
   render();
   if (st.pin.length === N) setTimeout(submit, 150);
+});
+
+// The hunter scanned a prey's code: that names the prey and gives the PIN.
+act('scan-open', () => {
+  if (st.busy || st.done) return;
+  openScanner((hit) => {
+    const s = snap();
+    const t = s && (s.targets || []).find((x) => x.id === hit.id);
+    if (!t) {
+      st.error = 'That code is not from a prey in this match.';
+      cue('wrong');
+      return render();
+    }
+    st.target = t.id;
+    st.pin = hit.pin;
+    submit();
+  });
 });
 
 function targetRow(t) {
@@ -165,7 +183,8 @@ function renderCatch() {
         (targets.length ? rest : '<p class="muted">No prey left to catch.</p>') +
       '</fieldset>' +
       check +
-      '<div class="pin-entry"><span class="label" id="pin-label">' + (sel ? esc(sel.name) + '’s PIN' : 'PIN') + '</span>' +
+      '<div class="pin-entry"><div class="pin-top"><span class="label" id="pin-label">' + (sel ? esc(sel.name) + '’s PIN' : 'PIN') + '</span>' +
+        (CONFIG.scan.enabled ? '<button type="button" class="btn btn-sm scan-btn" data-act="scan-open"' + (st.busy || locked || s.paused ? ' disabled' : '') + '>' + icon('camera', 18) + 'Scan their code</button>' : '') + '</div>' +
         '<div class="pin-boxes" role="group" aria-labelledby="pin-label">' + boxes + '</div>' + status + '</div>' +
     '</div>' +
     '<div class="keypad pad-b">' + keys + '</div>');
@@ -245,10 +264,13 @@ function renderTagged() {
     '<div class="tagged scroll">' +
       '<div class="tagged-top"><span class="chip tagged-chip">PREY</span>' +
         '<span class="tagged-note">' + icon('sun', 16, 2.25) + (app.wakeHeld() ? 'Screen stays on · turn brightness up' : 'Turn your brightness up') + '</span></div>' +
-      '<h1 class="head">' + (me.tag ? 'YOU’VE BEEN<br>TAGGED' : 'SHOW YOUR<br>PIN') + '</h1>' +
-      '<p class="tagged-lead">Turn your screen to the hunter so they can type this PIN.</p>' +
-      '<div class="tagged-pin" role="img" aria-label="Your catch PIN: ' + esc(pin.split('').join(' ')) + '">' +
-        pin.split('').map((d) => '<span class="mono">' + esc(d) + '</span>').join('') + '</div>' +
+      '<h1 class="head">' + (me.tag ? 'YOU’VE BEEN <br>TAGGED' : 'SHOW YOUR <br>PIN') + '</h1>' +
+      '<p class="tagged-lead">' + (CONFIG.scan.enabled ? 'Turn your screen to the hunter. They scan the code or type the PIN.' : 'Turn your screen to the hunter so they can type this PIN.') + '</p>' +
+      '<div class="tagged-show">' +
+        '<div class="tagged-pin" role="img" aria-label="Your catch PIN: ' + esc(pin.split('').join(' ')) + '">' +
+          pin.split('').map((d) => '<span class="mono">' + esc(d) + '</span>').join('') + '</div>' +
+        (CONFIG.scan.enabled && pin ? '<div class="tagged-qr" role="img" aria-label="Catch code for the hunter to scan" translate="no">' + qrSvg(scanText(me.id, pin)) + '</div>' : '') +
+      '</div>' +
       '<div class="tagged-wait">' +
         '<span class="tagged-av head" aria-hidden="true">' + esc(who ? who.by.charAt(0) : '?') + '</span>' +
         '<span class="tagged-who"><strong>' + (who ? 'Waiting for ' + esc(who.by) : 'Waiting for a hunter') + '</strong>' +

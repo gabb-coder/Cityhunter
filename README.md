@@ -58,8 +58,12 @@ Everything tunable is in `js/config.js`.
 | `saver.dimAfterSec` / `mapRefreshMs` / `posSendSec` | 20 / 1000 / 4 | Battery saver: when the screen goes dark, and how often the map and position update |
 | `replay.minMoveM` / `maxPoints` / `seconds` | 8 / 500 / 9 | Route recording detail and the length of the animated replay |
 | `zone.shrinkStartFrac` / `shrinkEndFrac` | 0.2 / 0.85 | When a shrinking zone starts closing and when it reaches its final size |
+| `zone.maxCorners` / `minAreaM2` / `maxSpanM` | 12 / 1500 / 6000 | Limits for a zone the host draws |
+| `zone.maxNoGo` / `noGoTellHostSec` | 6 / 20 | No-go areas per match, and how long before the host is told about a player inside one |
+| `scan.enabled` / `everyMs` / `maxSidePx` | true / 160 / 640 | Scan to catch: on or off, how often a camera frame is checked, and the size frames are shrunk to |
+| `awards.*` | see file | Thresholds for the end-of-match awards |
 | `map.offline.zooms` / `maxTiles` / `keepTiles` | 15–17 / 160 / 800 | Map tiles saved for the play zone at match start |
-| `protocol` | 5 | Bump when messages change; phones on an older cached copy are turned away |
+| `protocol` | 6 | Bump when messages change; phones on an older cached copy are turned away |
 | `net.heartbeatSec` / `heartbeatTimeoutSec` | 2 / 8 | Heartbeat interval and the silence that counts as a dropped link |
 | `net.spotHoldSec` | 300 | A disconnected player's spot is held this long |
 | `net.hostOfflineHoldSec` | 180 | Match stays paused this long waiting for the host |
@@ -131,6 +135,12 @@ Fixes from a full review of every feature.
 - **Awards** (`js/host-awards.js`): longest survivor, first catch, top hunter, most ground covered and closest call, shown on the results screen. Limits are in `CONFIG.awards`.
 - **Past matches and last setup** (`js/ui/history.js`): each phone keeps its own last `history.keep` results, and the host's next lobby offers "Use last setup".
 - **iPhone engine tests**: tests tagged `@webkit` also run in WebKit, the engine behind every iPhone browser.
+
+## Added in 2.4
+
+- **Scan to catch** (`js/ui/scan.js`): the prey's PIN screen also shows a QR code with the same information, and the hunter can scan it instead of typing. The code only ever appears on the prey's own screen, and the host still checks the distance. Decoding uses the browser's detector where there is one and the bundled `vendor/jsQR.js` everywhere else (loaded only when the scanner opens). `CONFIG.scan.enabled = false` hides it.
+- **Drawn zones** (`js/geom.js`, `js/ui/zone.js`): the zone editor has three tools: Circle, Draw shape (tap out up to `zone.maxCorners` corners) and No-go areas. A drawn zone is `{ lat, lng, r, poly }`, where lat/lng/r describe the circle around it, so map framing and saved tiles work unchanged. Containment, the out-of-zone direction, shrinking and Lockdown all follow the shape.
+- **No-go areas**: up to `zone.maxNoGo` shapes marked on everyone's map. A player inside one gets a warning and a sound; the host is told if they stay `zone.noGoTellHostSec`. There is no game penalty.
 
 ### Adding a language
 

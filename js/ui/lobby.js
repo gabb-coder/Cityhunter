@@ -60,7 +60,7 @@ function renderLobby() {
   const rules = Object.keys(RULE_LABELS).map((key) =>
     '<button type="button" class="rule-row" data-act="rule" data-rule="' + key + '"' + (host ? '' : ' disabled') + '>' +
       '<span>' + RULE_LABELS[key] + '</span>' +
-      '<span class="mono rule-val">' + fmtRule(key, s.rules[key]) + (host ? '<span class="muted">' + icon('chevRight', 18, 2.5) + '</span>' : '') + '</span>' +
+      '<span class="mono rule-val">' + (key === 'zoneRadiusM' && s.zoneShape ? 'Drawn shape' : fmtRule(key, s.rules[key])) + (host ? '<span class="muted">' + icon('chevRight', 18, 2.5) + '</span>' : '') + '</span>' +
     '</button>').join('');
 
   const stepper = '<div class="rule-row stepper-row"><span>Starting hunters</span>' +
@@ -126,6 +126,11 @@ act('ready', () => app.session.send({ k: 'ready', ready: !snap().me.ready }));
 act('rule', (el) => {
   const key = el.dataset.rule;
   const cur = snap().rules[key];
+  // With a drawn zone there is no radius to pick: open the zone editor instead.
+  if (key === 'zoneRadiusM' && snap().zoneShape) {
+    const edit = document.querySelector('[data-act="zone-edit"]');
+    return edit && edit.click();
+  }
   openModal(
     '<h2>' + RULE_LABELS[key] + '</h2>' +
     '<div class="opt-grid">' + RULE_OPTIONS[key].map((v) =>
