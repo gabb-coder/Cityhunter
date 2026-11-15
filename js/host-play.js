@@ -2,7 +2,7 @@
 // rules for who sees whom on the map.
 
 import { CONFIG, ECONOMY, ABILITIES } from './config.js';
-import { dist, bearing } from './util.js';
+import { dist, bearing, own } from './util.js';
 
 const P = CONFIG.ping;
 
@@ -10,42 +10,78 @@ export function installPlay(host) {
   const G = () => host.G;
 
   // ---------------------------------------------------------- pings
+  // Record where a player is as their new ping. Their armed decoys are
+  // stamped with the same time, so a forced ping (Scan) never leaves a decoy
+  // looking older than the real one.
+  const setPing = (p, pos) => {
+    const g = G();
+    p.ping = {
+      lat: pos.lat, lng: pos.lng, acc: pos.acc, t: g.T,
+      prev: p.ping ? { lat: p.ping.lat, lng: p.ping.lng } : null
+    };
+    for (const d of g.decoys) if (d.owner === p.id && d.armed) d.t = g.T;
+  };
+
+  // The reward for a timed ping is paid when the ping is actually shown
+  // (or skipped by Ghost), never for a ping the prey dodged.
+  const paySurvived = (p) => {
+    p.gc += ECONOMY.perPingSurvived;
+    p.earned += ECONOMY.perPingSurvived;
+    p.pings++;
+  };
+
   // scheduled: the regular timed ping (pays prey, burns Ghost, ages decoys)
   // otherwise: a forced ping from Scan or the host console
   host.doPing = ({ scheduled = false, onlyPrey = false } = {}) => {
     const g = G();
     const now = Date.now();
-    for (const p of host.active()) {
-      if (onlyPrey && p.role !== 'prey') continue;
-      if (p.role === 'prey' && scheduled) {
-        p.gc += ECONOMY.perPingSurvived;
-        p.earned += ECONOMY.perPingSurvived;
-        p.pings++;
-        if (p.fx.ghost) {
-          p.fx.ghost = false;
-          host.note(p, 'Ghost used: this ping was skipped', 'lime');
-          continue;
-        }
-      }
-      // No fresh position (GPS lost or offline): the old ping stands and
-      // its circle keeps growing on the other side's map.
-      if (!host.fresh(p, now)) continue;
-      p.ping = {
-        lat: p.pos.lat, lng: p.pos.lng, acc: p.pos.acc, t: g.T,
-        prev: p.ping ? { lat: p.ping.lat, lng: p.ping.lng } : null
-      };
-    }
     if (scheduled) {
       g.pingNo++;
       // Decoys show up alongside the real ping for a few cycles.
       g.decoys = g.decoys.filter((d) => d.left-- > 0);
-      for (const d of g.decoys) d.t = g.T;
+      for (const d of g.decoys) {
+        d.armed = true;
+        d.t = g.T;
+      }
+    }
+    for (const p of host.active()) {
+      if (onlyPrey && p.role !== 'prey') continue;
+      const pay = scheduled && p.role === 'prey';
+      if (pay && p.fx.ghost) {
+        p.fx.ghost = false;
+        p.owed = null;
+        paySurvived(p);
+        host.note(p, 'Ghost used: this ping was skipped', 'lime');
+        continue;
+      }
+      // No fresh position (GPS off or offline): the ping is owed. It lands
+      // the moment their next position arrives, so switching GPS off around
+      // ping time gains nothing. Until then the old circle keeps growing.
+      if (!host.fresh(p, now)) {
+        p.owed = { pay: pay || !!(p.owed && p.owed.pay) };
+        continue;
+      }
+      p.owed = null;
+      setPing(p, p.pos);
+      if (pay) paySurvived(p);
+    }
+    if (scheduled) {
       for (const h of host.hunters()) {
         if (h.fx.tracker && g.pingNo > h.fx.tracker.fromPing + ABILITIES.tracker.pings) h.fx.tracker = null;
       }
     }
     host.dirty = true;
   };
+
+  // An owed ping is delivered with the first position that arrives.
+  host.hooks.pos.push((p, next) => {
+    if (!p.owed || G().phase !== 'live' || p.dropped) return;
+    const pay = p.owed.pay && p.role === 'prey';
+    p.owed = null;
+    setPing(p, next);
+    if (pay) paySurvived(p);
+    host.dirty = true;
+  });
 
   host.hooks.live.push((now) => {
     const g = G();
@@ -72,8 +108,8 @@ export function installPlay(host) {
 
   // ---------------------------------------------------------- shop
   host.on('buy', (p, m) => {
-    const a = ABILITIES[m.id];
-    if (!a || !host.inMatch || p.role === 'spectator') return;
+    const a = own(ABILITIES, m.id);
+    if (!a || !host.inMatch || p.role === 'spectator' || p.dropped) return;
     if (p.gc < a.cost) return host.note(p, 'You need ' + (a.cost - p.gc) + ' more GC for ' + a.name);
     p.gc -= a.cost;
     p.inv[a.id] = (p.inv[a.id] || 0) + 1;
@@ -98,7 +134,7 @@ export function installPlay(host) {
       if (!host.fresh(p)) return host.note(p, 'Decoy needs a GPS fix');
       if (!take(p, 'decoy')) return;
       const g = G();
-      g.decoys.push({ id: ++g.evN, owner: p.id, lat: p.pos.lat, lng: p.pos.lng, acc: p.pos.acc, t: null, left: ABILITIES.decoy.pings });
+      g.decoys.push({ id: ++g.evN, owner: p.id, lat: p.pos.lat, lng: p.pos.lng, acc: p.pos.acc, t: null, armed: false, left: ABILITIES.decoy.pings });
       host.note(p, 'Decoy armed. It appears at your next ping.', 'lime');
     },
     jammer(p) {
@@ -121,7 +157,7 @@ export function installPlay(host) {
     tracker(p, m) {
       const seen = host.prey().filter((q) => q.ping);
       if (!seen.length) return host.note(p, 'No prey has pinged yet');
-      let target = seen.find((q) => q.id === m.target);
+      let target = seen.find((q) => q.id === String(m.target || '').split(':')[0]);
       if (!target) {
         if (!host.fresh(p)) return host.note(p, 'Tracker needs a GPS fix');
         target = seen.sort((a, b) => dist(p.pos, a.ping) - dist(p.pos, b.ping))[0];
@@ -144,19 +180,20 @@ export function installPlay(host) {
   };
 
   host.on('use', (p, m) => {
-    const a = ABILITIES[m.id];
+    const a = own(ABILITIES, m.id);
     const g = G();
-    if (!a || !host.inMatch || g.paused) return;
+    if (!a || !host.inMatch || p.dropped) return;
+    if (g.paused) return host.note(p, 'The match is paused');
     if (a.side !== p.role) return host.note(p, a.name + ' is a ' + a.side + ' ability');
     if (a.side === 'hunter' && g.phase !== 'live') return host.note(p, 'Locked until the head start ends');
-    USE[a.id](p, m);
+    if (own(USE, a.id)) USE[a.id](p, m);
   });
 
   // ---------------------------------------------------------- team map pins
   // One pin per player; dropping another moves it.
   host.on('mark', (p, m) => {
     const g = G();
-    if (!host.inMatch || p.role === 'spectator') return;
+    if (!host.inMatch || p.role === 'spectator' || p.dropped) return;
     g.marks = g.marks.filter((k) => k.by !== p.id);
     const lat = Number(m.lat), lng = Number(m.lng);
     if (m.clear || !isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
@@ -176,13 +213,21 @@ export function installPlay(host) {
   });
 
   // ---------------------------------------------------------- chat
-  const channelOf = (p, ch) => (ch === 'all' || !host.inMatch || p.role === 'spectator' ? 'all' : p.role);
+  // During a match each side has its own channel, and spectators (who can
+  // see every player live) may only talk among themselves.
+  const channelOf = (p, ch) => {
+    if (!host.inMatch) return 'all';
+    if (p.role === 'spectator') return 'spectator';
+    return ch === 'all' ? 'all' : p.role;
+  };
 
   host.on('chat', (p, m) => {
     const g = G();
     const text = String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, CONFIG.chat.maxLength);
     if (!text) return;
+    if (p.dropped) return;
     const key = channelOf(p, m.ch);
+    if (!g.chat[key]) g.chat[key] = [];
     const entry = { k: 'chat', n: ++g.chatN, ch: key === 'all' ? 'all' : 'team', from: p.id, name: p.name, role: p.role, text, T: Math.round(g.T) };
     g.chat[key].push(entry);
     if (g.chat[key].length > CONFIG.chat.history) g.chat[key].shift();
@@ -205,6 +250,7 @@ export function installPlay(host) {
   host.hooks.hello.push(sendHistory);
   host.hooks.convert.push((q) => sendHistory(q));   // joins the hunter channel
   host.hooks.start.push(() => host.all().forEach(sendHistory));
+  host.hooks.lobby.push(() => host.all().forEach(sendHistory));
 
   // ---------------------------------------------------------- who sees what
   const pingRadius = (q) => {
@@ -242,19 +288,23 @@ export function installPlay(host) {
     }
 
     if (p.role === 'hunter') {
-      // Prey: last ping only (plus any decoys, which look identical).
+      // Prey: last ping only, plus any decoys. A decoy must be impossible to
+      // tell from the real ping: same fields, same time, and ids handed out
+      // by map position rather than "real one first".
       for (const q of host.prey()) {
         if (!q.ping) continue;
-        const item = { id: q.id, name: q.name, kind: 'prey', lat: q.ping.lat, lng: q.ping.lng, r: pingRadius(q), t: q.ping.t, lost: q.gps.graceOut };
-        if (tr && tr.target === q.id && g.pingNo > tr.fromPing && q.ping.prev && dist(q.ping.prev, q.ping) > 3) {
-          item.hdg = Math.round(bearing(q.ping.prev, q.ping));
-        }
-        v.pings.push(item);
-      }
-      for (const d of g.decoys) {
-        const owner = g.players[d.owner];
-        if (d.t == null || !owner || owner.role !== 'prey' || !owner.ping) continue;
-        v.pings.push({ id: 'decoy' + d.id, name: owner.name, kind: 'prey', lat: d.lat, lng: d.lng, r: pingRadius(owner), t: d.t });
+        const base = { pid: q.id, name: q.name, kind: 'prey', r: pingRadius(q), t: q.ping.t, lost: q.gps.graceOut };
+        const spots = [{ lat: q.ping.lat, lng: q.ping.lng, real: true }];
+        for (const d of g.decoys) if (d.owner === q.id && d.t != null) spots.push({ lat: d.lat, lng: d.lng });
+        spots.sort((a, b) => a.lat - b.lat || a.lng - b.lng);
+        spots.forEach((sp, i) => {
+          const item = { id: q.id + ':' + i, ...base, lat: sp.lat, lng: sp.lng };
+          // Tracker (a paid ability) follows the real prey.
+          if (sp.real && tr && tr.target === q.id && g.pingNo > tr.fromPing && q.ping.prev && dist(q.ping.prev, q.ping) > 3) {
+            item.hdg = Math.round(bearing(q.ping.prev, q.ping));
+          }
+          v.pings.push(item);
+        });
       }
       // Teammates: live.
       for (const q of host.hunters()) {

@@ -156,3 +156,7 @@ export class Emitter {
     }
   }
 }
+
+// Look up a key that came from another phone. Plain obj[key] would also find
+// inherited names such as "constructor"; this only finds real entries.
+export const own = (obj, key) => (obj != null && typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined);

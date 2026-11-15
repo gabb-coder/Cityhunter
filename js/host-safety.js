@@ -47,9 +47,11 @@ export function installSafety(host) {
         if (g.T - p.gps.lostT > CONFIG.gps.graceSec * 1000) graceOut(p);
       }
 
-      // ---- zone (prey only, and only on a position we trust) ----
-      if (p.role !== 'prey' || !fresh || !z) continue;
-      const outside = dist(p.pos, z) > z.r;
+      // ---- zone (prey only) ----
+      if (p.role !== 'prey' || !z) continue;
+      // Without a fresh fix nobody can say they came back in, so a prey who
+      // was last seen outside stays "outside": the countdown keeps running.
+      const outside = fresh ? dist(p.pos, z) > z.r : p.out.sinceT != null;
       if (outside) {
         if (p.out.sinceT == null) {
           p.out.sinceT = g.T;
@@ -72,16 +74,32 @@ export function installSafety(host) {
     const g = G();
     if (!host.inMatch) return;
     if (m.on) {
-      if (g.help) return;
+      // Only someone playing can stop the match.
+      if (g.help || p.role === 'spectator' || p.dropped) return;
       g.help = { by: p.id, T: g.T };
       host.pause('help');
       host.evAll({ type: 'help', name: p.name }, (q) => q !== p);
     } else if (g.help && (g.help.by === p.id || host.isHost(p))) {
-      g.help = null;
-      host.resume('help');
-      host.evAll({ type: 'toast', text: 'Match resumed', tone: 'lime' });
+      host.endHelp();
     }
   });
+
+  // Players can keep walking while the clock is stopped. So that the pause
+  // cannot be used to slip away, a prey who asked for it is shown live to
+  // the hunters for a short while after play resumes.
+  host.endHelp = () => {
+    const g = G();
+    if (!g.help) return;
+    const asker = g.players[g.help.by];
+    g.help = null;
+    host.resume('help');
+    host.evAll({ type: 'toast', text: 'Match resumed', tone: 'lime' });
+    const sec = CONFIG.safety.revealAfterHelpSec;
+    if (asker && asker.role === 'prey' && !asker.dropped && sec > 0 && g.phase === 'live') {
+      asker.helpRevealT = g.T + sec * 1000;
+      host.note(asker, 'Hunters can see you live for ' + sec + ' s after a help pause', 'hunter');
+    }
+  };
 
   host.hooks.view.push((p, v) => {
     const g = G();
@@ -96,11 +114,15 @@ export function installSafety(host) {
 
   host.hooks.view.push((p, v) => {
     if (!host.inMatch) return;
+    const g = G();
+    const now = Date.now();
     v.me.out = { sinceT: p.out.sinceT, revealed: p.out.revealed };
     v.me.gps = { graceOut: p.gps.graceOut };
+    if (p.helpRevealT > g.T) v.me.helpRevealT = p.helpRevealT;
     if (p.role === 'hunter') {
       for (const q of host.prey()) {
-        if (q.out.revealed && q.pos) v.live.push({ id: q.id, name: q.name, kind: 'revealed', lat: q.pos.lat, lng: q.pos.lng });
+        const why = q.out.revealed ? 'zone' : q.helpRevealT > g.T ? 'help' : null;
+        if (why && q.pos) v.live.push({ id: q.id, name: q.name, kind: 'revealed', why, lat: q.pos.lat, lng: q.pos.lng, stale: !host.fresh(q, now) });
       }
     }
   });

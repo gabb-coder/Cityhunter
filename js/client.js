@@ -114,7 +114,8 @@ export class Session extends Emitter {
       this.path = saved && saved.key === key ? saved.pts : [];
     }
     if (prev && prev.me.role !== s.me.role) {
-      this.chat.team = [];
+      // The host has already sent the new side's chat history (it arrives
+      // just before this snapshot), so the list itself is left alone.
       this.unread.team = 0;
       this.emit('role', s.me.role, prev.me.role);
     }

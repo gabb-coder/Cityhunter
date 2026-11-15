@@ -143,13 +143,16 @@ export class HostNet extends Emitter {
 
 // ---------------------------------------------------------------- client
 export class ClientNet extends Emitter {
-  constructor(code) {
+  // patient: coming back to a match we were already in (page reloaded).
+  // The host may be away for a moment, so keep redialling instead of
+  // giving up after three tries like a first-time join does.
+  constructor(code, { patient = false } = {}) {
     super();
     this.hostId = hostPeerId(code);
     this.peer = null;
     this.conn = null;
     this.closed = false;
-    this.everOnline = false;
+    this.everOnline = patient;
     this.lastRx = 0;
     this.timer = null;
     this.dialTimer = null;
@@ -173,6 +176,9 @@ export class ClientNet extends Emitter {
 
   _attempt() {
     if (this.closed) return;
+    // Already connected: a retry timer left over from an earlier failure
+    // must not tear down a working link.
+    if (this.state.status === 'online' && this.conn && this.conn.open) return;
     clearTimeout(this.timer);
     clearTimeout(this.dialTimer);
     const gen = ++this.gen;
@@ -233,6 +239,7 @@ export class ClientNet extends Emitter {
     conn.on('open', () => {
       if (this.conn !== conn || this.closed) return;
       clearTimeout(this.dialTimer);
+      clearTimeout(this.timer);
       this.gen++;
       this.everOnline = true;
       this.lastRx = Date.now();

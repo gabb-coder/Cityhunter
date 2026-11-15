@@ -1,6 +1,7 @@
 // Host feature: the admin console. Only the host player may send these.
 
 import { CONFIG } from './config.js';
+import { own } from './util.js';
 
 export function installAdmin(host) {
   const G = () => host.G;
@@ -10,7 +11,7 @@ export function installAdmin(host) {
       host.pause('admin');
     },
     resume() {
-      G().help = null;
+      host.endHelp();
       host.resume();
     },
     end() {
@@ -30,11 +31,11 @@ export function installAdmin(host) {
       g.endT = Math.max(g.T + 10000, g.endT + add);
     },
     gc(m) {
-      const q = G().players[m.id];
+      const q = host.player(m.id);
       if (q) q.gc = Math.max(0, q.gc + (Number(m.amt) || 0));
     },
     role(m) {
-      const q = G().players[m.id];
+      const q = host.player(m.id);
       if (!q || !host.inMatch || q.dropped || q.role === 'spectator') return;
       if (q.role === 'prey') {
         host.convert(q, null, 'admin');
@@ -52,7 +53,7 @@ export function installAdmin(host) {
       }
     },
     kick(m) {
-      const q = G().players[m.id];
+      const q = host.player(m.id);
       if (!q || host.isHost(q)) return;
       q.kicked = true;
       (G().banned = G().banned || []).push(q.token);
@@ -72,8 +73,8 @@ export function installAdmin(host) {
   };
 
   host.on('admin', (p, m) => {
-    if (!host.isHost(p) || !OPS[m.op]) return;
-    OPS[m.op](m);
+    const op = own(OPS, m.op);
+    if (host.isHost(p) && op) op(m);
   });
 
   // Player health for the console: status only, never positions.
