@@ -19,7 +19,7 @@ test('service worker precache list matches the files in the repo', async () => {
   for (const f of listed) expect(fs.existsSync(path.join(ROOT, f)), f + ' is precached but missing').toBe(true);
   // Every game script and stylesheet must be in the list, or the app breaks offline.
   const need = [];
-  for (const dir of ['js', 'js/ui', 'css']) {
+  for (const dir of ['js', 'js/ui', 'js/lang', 'css']) {
     for (const f of fs.readdirSync(path.join(ROOT, dir))) if (/\.(js|css)$/.test(f)) need.push(dir + '/' + f);
   }
   for (const f of need) expect(listed, f + ' is not precached').toContain(f);
