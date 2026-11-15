@@ -87,6 +87,7 @@ export function installAdmin(host) {
       gpsAge: q.pos ? Math.round((now - q.posAt) / 1000) : null,
       gpsOut: q.gps.graceOut,
       outZone: q.out.sinceT != null, revealed: q.out.revealed,
+      relay: !!(host.net.isRelay && host.net.isRelay(q.cid)),
       offSec: q.conn ? 0 : Math.round((q.offMs || 0) / 1000),
       holdSec: CONFIG.net.spotHoldSec
     }));

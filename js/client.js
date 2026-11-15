@@ -16,6 +16,7 @@ export class Session extends Emitter {
     this.isHost = isHost;
     this.watch = watch;          // joined as a spectator
     this.routes = null;          // everyone's routes, sent once at the end
+    this.backup = null;          // deputy only: the host's latest backup of the match
     this.geo = geo;
     this.id = null;
     this.snap = null;
@@ -90,6 +91,11 @@ export class Session extends Emitter {
         this.routes = m;
         this.emit('update');
         break;
+      case 'backup':
+        // This player is the deputy: keep the latest backup of the match in
+        // case the host disappears (js/host-handover.js).
+        if (m.G && m.G.code) this.backup = { at: Date.now(), G: m.G };
+        break;
       case 'reject':
       case 'bye':
         this.emit(m.k, m.reason);
@@ -119,7 +125,12 @@ export class Session extends Emitter {
       this.unread.team = 0;
       this.emit('role', s.me.role, prev.me.role);
     }
-    if (prev && prev.phase !== s.phase) this.emit('phase', s.phase, prev.phase);
+    if (prev && prev.phase !== s.phase) {
+      this.emit('phase', s.phase, prev.phase);
+      // A match just started (or went live): report where we are at once,
+      // without waiting for the next GPS update or heartbeat.
+      if (this.inMatch) setTimeout(() => !this.closed && this.sendPos(), 0);
+    }
 
     // Events are delivered once. After a page reload the backlog is skipped.
     const evs = s.ev || [];
@@ -157,8 +168,13 @@ export class Session extends Emitter {
   }
 
   // Battery saver reports position less often.
+  // ...and so does a player connected through the relay.
+  get relayed() {
+    return this.link.state.via === 'relay';
+  }
   posEveryMs() {
-    return (app.saver && app.saver.on ? CONFIG.saver.posSendSec : CONFIG.net.posSendSec) * 1000;
+    const sec = app.saver && app.saver.on ? CONFIG.saver.posSendSec : CONFIG.net.posSendSec;
+    return Math.max(sec, this.relayed ? CONFIG.relay.posSendSec : 0) * 1000;
   }
 
   sendPos() {
@@ -171,6 +187,9 @@ export class Session extends Emitter {
 
   heartbeat() {
     if (this.closed) return;
+    // Through the relay every message counts against a quota: half as many.
+    if (this.relayed && Date.now() - (this.lastBeat || 0) < CONFIG.net.heartbeatSec * 2000 - 100) return;
+    this.lastBeat = Date.now();
     const peer = this.link.peer;
     this.send({ k: 'hb', peer: peer && peer.open ? peer.id : null });
     if (Date.now() - this.lastPosSent >= this.posEveryMs()) this.sendPos();

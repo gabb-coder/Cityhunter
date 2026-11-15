@@ -13,6 +13,7 @@
 /* global Peer */
 import { CONFIG } from './config.js';
 import { Emitter } from './util.js';
+import { RelayHost, RelayClient, relayOn } from './relay.js';
 
 const N = CONFIG.net;
 
@@ -38,6 +39,13 @@ export class HostNet extends Emitter {
     this.closed = false;
     this.signal = false;      // connected to the signalling server?
     this.watch = null;
+    // Second way in, for phones that cannot open a direct link (js/relay.js).
+    this.relay = null;
+    if (relayOn()) {
+      this.relay = new RelayHost(code);
+      this.relay.on('message', (cid, msg) => this.emit('message', cid, msg, null));
+      this.relay.start();
+    }
   }
 
   // Resolves once the host ID is registered. With keepTrying (resuming a
@@ -80,6 +88,9 @@ export class HostNet extends Emitter {
       console.warn('[host net]', err.type, err.message);
       if (window.CH && window.CH.diag) window.CH.diag.note('net', 'host peer error ' + err.type);
       if (err.type === 'peer-unavailable') return;
+      // The lobby code is registered to someone else. A stale registration of
+      // our own (after a reload) clears by itself; a live host answers.
+      if (err.type === 'unavailable-id') this._whois();
       if (onFail(err)) {
         this.closed = true;
         try { peer.destroy(); } catch (e) { /* already gone */ }
@@ -102,6 +113,32 @@ export class HostNet extends Emitter {
     }, 4000);
   }
 
+  // Ask whoever holds our lobby code who they are. Emits 'holder' if a live
+  // host answers (another phone has taken the match over).
+  _whois() {
+    if (this.asking || this.closed) return;
+    this.asking = true;
+    let probe = null;
+    const done = (answer) => {
+      clearTimeout(timer);
+      try { if (probe) probe.destroy(); } catch (e) { /* gone */ }
+      setTimeout(() => { this.asking = false; }, 3000);
+      if (answer && !this.closed) this.emit('holder', answer);
+    };
+    const timer = setTimeout(() => done(null), 6000);
+    try {
+      probe = new Peer(peerOptions());
+      probe.on('open', () => {
+        const c = probe.connect(this.id, { reliable: true, serialization: 'json' });
+        c.on('open', () => c.send({ k: 'whois' }));
+        c.on('data', (m) => m && m.k === 'iam' && done(m));
+      });
+      probe.on('error', () => done(null));
+    } catch (e) {
+      done(null);
+    }
+  }
+
   _accept(conn) {
     const cid = this.nextCid++;
     this.conns.set(cid, conn);
@@ -117,7 +154,13 @@ export class HostNet extends Emitter {
     conn.on('error', down);
   }
 
+  // Relayed players have ids like 'r:ab12...'; direct ones are numbers.
+  isRelay(cid) {
+    return typeof cid === 'string' && cid.startsWith('r:');
+  }
+
   send(cid, msg) {
+    if (this.isRelay(cid)) return !!this.relay && this.relay.send(cid, msg);
     const conn = this.conns.get(cid);
     if (!conn || !conn.open) return false;
     try {
@@ -129,6 +172,11 @@ export class HostNet extends Emitter {
   }
 
   drop(cid) {
+    if (this.isRelay(cid)) {
+      // Let a last message (a "bye", a rejection) get out first.
+      if (this.relay) setTimeout(() => this.relay && this.relay.drop(cid), 400);
+      return;
+    }
     const conn = this.conns.get(cid);
     this.conns.delete(cid);
     if (conn) setTimeout(() => { try { conn.close(); } catch (e) { /* gone */ } }, 200);
@@ -137,6 +185,8 @@ export class HostNet extends Emitter {
   destroy() {
     this.closed = true;
     clearInterval(this.watch);
+    if (this.relay) this.relay.destroy();
+    this.relay = null;
     try { if (this.peer) this.peer.destroy(); } catch (e) { /* gone */ }
   }
 }
@@ -157,9 +207,13 @@ export class ClientNet extends Emitter {
     this.timer = null;
     this.dialTimer = null;
     this.gen = 0;
+    this.code = code;
+    this.relay = null;        // RelayClient while the relay is being tried or used
+    this.fails = 0;           // direct attempts failed since the last time we were online
     // status: connecting | online | reconnecting | failed
     // cause:  null | 'self' (my connection) | 'host' (host unreachable)
-    this.state = { status: 'connecting', cause: null, attempt: 0, downSince: 0, error: null };
+    // via:    'direct' (WebRTC) | 'relay'
+    this.state = { status: 'connecting', cause: null, attempt: 0, downSince: 0, error: null, via: 'direct' };
     this.watchdog = setInterval(() => this._watch(), 1000);
     this._online = () => this.state.status === 'reconnecting' && this.retryNow();
     window.addEventListener('online', this._online);
@@ -178,7 +232,7 @@ export class ClientNet extends Emitter {
     if (this.closed) return;
     // Already connected: a retry timer left over from an earlier failure
     // must not tear down a working link.
-    if (this.state.status === 'online' && this.conn && this.conn.open) return;
+    if (this.state.status === 'online' && (this.state.via === 'relay' || (this.conn && this.conn.open))) return;
     clearTimeout(this.timer);
     clearTimeout(this.dialTimer);
     const gen = ++this.gen;
@@ -187,6 +241,11 @@ export class ClientNet extends Emitter {
       // The browser knows it has no network: fail fast and count the attempt.
       this._set({ cause: 'self' });
       this.dialTimer = setTimeout(() => gen === this.gen && this._fail('offline'), 1000);
+      return;
+    }
+    // Testing (and phones known to need it): go straight to the relay.
+    if (CONFIG.relay.forceRelay && relayOn()) {
+      this.dialTimer = setTimeout(() => gen === this.gen && this._fail('timeout'), 300);
       return;
     }
     this.dialTimer = setTimeout(() => gen === this.gen && this._fail('timeout'), N.dialTimeoutSec * 1000);
@@ -242,8 +301,10 @@ export class ClientNet extends Emitter {
       clearTimeout(this.timer);
       this.gen++;
       this.everOnline = true;
+      this.fails = 0;
+      this._stopRelay();       // a direct link beats the relay
       this.lastRx = Date.now();
-      this._set({ status: 'online', cause: null, attempt: 0, downSince: 0, error: null });
+      this._set({ status: 'online', cause: null, attempt: 0, downSince: 0, error: null, via: 'direct' });
       this.emit('up');
     });
     conn.on('data', (msg) => {
@@ -261,8 +322,19 @@ export class ClientNet extends Emitter {
     if (this.closed) return;
     clearTimeout(this.dialTimer);
     this.gen++;
+    // The host is registered but a direct link will not open (or the
+    // signalling service is out): knock on the relay as well. Whichever
+    // connects first wins.
+    if (reason !== 'host-missing' && reason !== 'offline' && ++this.fails >= CONFIG.relay.afterFailedDials) this._tryRelay();
+    if (this.relay && !this.everOnline && this.state.attempt >= 3 && Date.now() - this.relay.startedAt < CONFIG.relay.answerTimeoutSec * 1000) {
+      // First join, direct attempts used up, relay still knocking: give it its time.
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this._fail('relay-timeout'), 1000);
+      return;
+    }
     if (!this.everOnline) {
       if (reason === 'host-missing' || this.state.attempt >= 3) {
+        this._stopRelay();
         this._set({ status: 'failed', error: reason === 'host-missing' ? 'not-found' : 'network' });
         return;
       }
@@ -277,11 +349,46 @@ export class ClientNet extends Emitter {
     this.timer = setTimeout(() => this._attempt(), wait);
   }
 
+  // ---- relay fallback ----
+  _tryRelay() {
+    if (this.relay || this.closed || !relayOn() || this.state.status === 'online') return;
+    const relay = new RelayClient(this.code);
+    relay.startedAt = Date.now();
+    this.relay = relay;
+    relay.on('up', () => {
+      if (this.relay !== relay || this.closed || this.state.status === 'online') return;
+      clearTimeout(this.dialTimer);
+      clearTimeout(this.timer);
+      this.gen++;
+      if (this.conn) { try { this.conn.close(); } catch (e) { /* gone */ } }
+      this.conn = null;
+      this.everOnline = true;
+      this.lastRx = Date.now();
+      this._set({ status: 'online', cause: null, attempt: 0, downSince: 0, error: null, via: 'relay' });
+      if (window.CH && window.CH.diag) window.CH.diag.note('net', 'connected through the relay');
+      this.emit('up');
+    });
+    relay.on('message', (msg) => {
+      if (this.relay !== relay || this.state.via !== 'relay') return;
+      this.lastRx = Date.now();
+      this.emit('message', msg);
+    });
+    relay.on('down', () => this.relay === relay && this.state.via === 'relay' && this._down());
+    relay.start();
+  }
+
+  _stopRelay() {
+    if (this.relay) this.relay.destroy();
+    this.relay = null;
+  }
+
   _down() {
     if (this.closed || this.state.status !== 'online') return;
     try { if (this.conn) this.conn.close(); } catch (e) { /* gone */ }
     this.conn = null;
-    this._set({ status: 'reconnecting', cause: navigator.onLine === false ? 'self' : null, attempt: 0, downSince: Date.now() });
+    this._stopRelay();
+    this.fails = 0;
+    this._set({ status: 'reconnecting', cause: navigator.onLine === false ? 'self' : null, attempt: 0, downSince: Date.now(), via: 'direct' });
     this.emit('down');
     this._attempt();
   }
@@ -316,6 +423,7 @@ export class ClientNet extends Emitter {
   }
 
   send(msg) {
+    if (this.state.status === 'online' && this.state.via === 'relay') return !!this.relay && this.relay.send(msg);
     const conn = this.conn;
     if (!conn || !conn.open || this.state.status !== 'online') return false;
     try {
@@ -331,6 +439,7 @@ export class ClientNet extends Emitter {
     clearInterval(this.watchdog);
     clearTimeout(this.timer);
     clearTimeout(this.dialTimer);
+    this._stopRelay();
     window.removeEventListener('online', this._online);
     try { if (this.peer) this.peer.destroy(); } catch (e) { /* gone */ }
   }
@@ -356,7 +465,7 @@ export class NullNet extends Emitter {
 export class LocalLink extends Emitter {
   constructor(net) {
     super();
-    this.state = { status: 'online', cause: null, attempt: 0, downSince: 0, error: null };
+    this.state = { status: 'online', cause: null, attempt: 0, downSince: 0, error: null, via: 'direct' };
     this.host = null;
     this.net = net;
   }

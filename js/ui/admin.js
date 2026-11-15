@@ -12,7 +12,7 @@ const send = (op, extra) => app.session.send({ k: 'admin', op, ...extra });
 function statusLine(p, inMatch) {
   if (p.dropped) return ['Out of the match', 'muted'];
   if (!p.conn) return ['Offline ' + clock(p.offSec) + (inMatch ? ' · spot held ' + clock(Math.max(0, p.holdSec - p.offSec)) : ''), 'hunter-ink'];
-  if (!inMatch) return [p.host ? 'Host' : 'Connected', 'lime-ink'];
+  if (!inMatch) return [p.host ? 'Host' : p.relay ? 'Connected through the relay' : 'Connected', 'lime-ink'];
   if (p.role === 'spectator') return ['Watching', 'muted'];
   if (p.gpsOut) return ['No GPS · grace over, circle widening', 'hunter-ink'];
   if (p.gpsAge == null) return ['No GPS fix yet', 'hunter-ink'];
@@ -20,7 +20,7 @@ function statusLine(p, inMatch) {
   if (p.revealed) return ['Out of zone · revealed to hunters', 'hunter-ink'];
   if (p.outZone) return ['Out of zone · countdown running', 'hunter-ink'];
   if (p.jumps) return ['GPS ±' + p.acc + ' m · ' + p.jumps + ' impossible move' + (p.jumps === 1 ? '' : 's') + ' flagged', 'hunter-ink'];
-  return ['GPS ±' + p.acc + ' m', p.acc > 30 ? 'hunter-ink' : 'muted'];
+  return ['GPS ±' + p.acc + ' m' + (p.relay ? ' · relay' : ''), p.acc > 30 ? 'hunter-ink' : 'muted'];
 }
 
 function renderAdmin() {
