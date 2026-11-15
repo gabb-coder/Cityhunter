@@ -33,7 +33,7 @@ test('lobby: join, rules, roles, ready, start, per-prey PIN', async ({ game }) =
   expect(A.errors.concat(B.errors, C.errors)).toEqual([]);
 });
 
-test('theme toggles, persists across reload, and sound switch is remembered', async ({ game }) => {
+test('theme toggles, persists across reload, and sound switch is remembered', { tag: '@webkit' }, async ({ game }) => {
   const A = await game.player('GABRIEL');
   await A.click('[data-act=theme]');
   expect(await A.evaluate(() => document.documentElement.dataset.theme)).toBe('sun');
@@ -44,7 +44,7 @@ test('theme toggles, persists across reload, and sound switch is remembered', as
   expect(await A.evaluate(() => window.CH.sound.on)).toBe(false);
 });
 
-test('safety reminder shows once per lobby and can be reopened', async ({ game }) => {
+test('safety reminder shows once per lobby and can be reopened', { tag: '@webkit' }, async ({ game }) => {
   const A = await game.player('GABRIEL');
   await A.click('[data-act=host]');
   await A.waitForSelector('#modal:not([hidden]) .safety-list');

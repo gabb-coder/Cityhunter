@@ -1,6 +1,6 @@
 // Screen 9: Results, leaderboard and route replay.
 
-import { $, esc, setHTML, clock, joinNames, plural } from '../util.js';
+import { $, esc, setHTML, clock, joinNames, plural, metres } from '../util.js';
 import { icon } from '../icons.js';
 import { MODES } from '../config.js';
 import { app, snap } from '../state.js';
@@ -36,6 +36,29 @@ function story(row, r, top) {
   if (row.caughtL == null) return r.winner === 'prey' ? 'Survived the whole hunt' : 'Still free at the end';
   const last = r.winner === 'hunters' && r.lastCatch && r.lastCatch.prey === row.name;
   return last ? 'Last prey standing · ' + clock(row.caughtL) : 'Prey → hunter at ' + clock(row.caughtL);
+}
+
+// End-of-match awards (worked out by the host: js/host-awards.js).
+const AWARDS = {
+  survivor: { title: 'Longest survivor', icon: 'shield', tone: 'prey', value: (a) => clock(a.value), note: () => 'as prey' },
+  first: { title: 'First catch', icon: 'bolt', tone: 'hunter', value: (a) => clock(a.value), note: (a) => 'caught ' + a.other },
+  hunter: { title: 'Top hunter', icon: 'target', tone: 'hunter', value: (a) => String(a.value), note: () => 'catches' },
+  distance: { title: 'Most ground covered', icon: 'compass', tone: 'lime', value: (a) => metres(a.value), note: () => 'on foot' },
+  escape: { title: 'Closest call', icon: 'ghost', tone: 'prey', value: (a) => metres(a.value), note: () => 'from a hunter' }
+};
+
+function awardsBlock(r, me) {
+  const list = (r.awards || []).filter((a) => AWARDS[a.id]);
+  if (!list.length) return '';
+  return '<section class="block" aria-label="Awards"><h2 class="label">Awards</h2><ul class="awards">' + list.map((a) => {
+    const d = AWARDS[a.id];
+    return '<li class="card award' + (a.pid === me.id ? ' you' : '') + '">' +
+      '<span class="award-ico ' + d.tone + '-ink">' + icon(d.icon, 24) + '</span>' +
+      '<span class="award-main"><span class="award-title">' + d.title + '</span>' +
+        '<span class="mono award-name"><span translate="no">' + esc(a.name) + '</span>' + (a.pid === me.id ? ' (you)' : '') + '</span></span>' +
+      '<span class="award-side"><span class="mono award-val">' + d.value(a) + '</span><span class="small muted">' + esc(d.note(a)) + '</span></span>' +
+    '</li>';
+  }).join('') + '</ul></section>';
 }
 
 function renderResults() {
@@ -74,6 +97,7 @@ function renderResults() {
       (watching ? '' : '<section class="block" aria-label="Your match"><div class="block-head"><h2 class="label">Your match</h2>' +
         '<button type="button" class="btn btn-sm share-card" data-act="share-card">' + icon('camera', 18) + 'Share result</button></div>' +
         '<div class="stats">' + stats + '</div></section>') +
+      awardsBlock(r, me) +
       '<section class="block"><h2 class="label">Leaderboard</h2><ol class="board">' + board + '</ol></section>' +
       routeCard +
       reportLink() +

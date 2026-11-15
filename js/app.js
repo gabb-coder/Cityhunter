@@ -36,12 +36,16 @@ import { installAdmin } from './host-admin.js';
 import { installSafety } from './host-safety.js';
 import { installResilience } from './host-resilience.js';
 import { installFairplay } from './host-fairplay.js';
+import { installAwards } from './host-awards.js';
+import './update.js';
+import './ui/info.js';
+import './ui/history.js';
 
 const TOKEN_KEY = 'ch2.token';       // sessionStorage: this tab's player identity
 const SESSION_KEY = 'ch2.session';   // sessionStorage: survives a reload of this tab
 
 // Features register here as later modules load (host side and client side).
-app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience, installFairplay];
+app.hostFeatures = [installPlay, installCatch, installAdmin, installSafety, installResilience, installFairplay, installAwards];
 
 // ---- URL switches for testing ----
 const params = new URLSearchParams(location.search);

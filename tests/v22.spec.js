@@ -11,7 +11,7 @@ test('problem report: has the diagnostics, has no positions or PINs', async ({ g
   await A.click('#s-admin [data-act=report]');
   const text = await A.inputValue('.report-text');
   expect(text).toContain('CITY HUNTER PROBLEM REPORT');
-  expect(text).toContain('version: 2.2.1');
+  expect(text).toMatch(/version: \d+\.\d+\.\d+ \(protocol \d+\)/);
   expect(text).toMatch(/me: GABRIEL \/ prey \/ host/);
   expect(text).toMatch(/phase: live/);
   expect(text).toMatch(/gps\s+ok/);
@@ -276,7 +276,7 @@ test('lobby chat works before the match starts', async ({ game }) => {
   await expect(B.locator('.msg-text')).toHaveText('meet at the bandstand');
 });
 
-test('practice round: plays against bots with no network, and you can walk by tapping', async ({ game }) => {
+test('practice round: plays against bots with no network, and you can walk by tapping', { tag: '@webkit' }, async ({ game }) => {
   const A = await game.player('GABRIEL');
   await A.ctx.setOffline(true);                                    // proves nothing goes over the network
   await A.click('[data-act=practice]');
@@ -320,7 +320,7 @@ test('practice round: plays against bots with no network, and you can walk by ta
   expect(A.errors).toEqual([]);
 });
 
-test('practice round: a hunter bot catches you through the real PIN flow, then you catch a bot', async ({ game }) => {
+test('practice round: a hunter bot catches you through the real PIN flow, then you catch a bot', { tag: '@webkit' }, async ({ game }) => {
   const A = await game.player('GABRIEL');
   await A.click('[data-act=practice]');
   await A.waitForSelector('[data-act=open-map]');

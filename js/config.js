@@ -9,7 +9,7 @@
 // Replace them with the real values from the original game.
 
 export const CONFIG = {
-  version: '2.2.1',
+  version: '2.3.0',
   protocol: 5,             // bump when host and client messages change shape
 
   // Catch PIN: the host checks the PIN and the hunter-prey distance.
@@ -104,6 +104,24 @@ export const CONFIG = {
     minMoveM: 8,             // the host records a route point after this much movement
     maxPoints: 500,          // per player; older points are thinned out
     seconds: 9               // length of the animated replay
+  },
+
+  // End-of-match awards.
+  awards: {
+    minPlayers: 3,           // no awards in a two-player match
+    topHunterMinCatches: 2,  // "Top hunter" needs at least this many catches
+    minDistanceM: 100,       // "Most ground covered" needs at least this
+    escapeWithinM: 100       // "Closest call": a free prey a hunter got this near
+  },
+
+  // Checking for a newer version of the app while the page stays open.
+  update: {
+    checkEverySec: 600
+  },
+
+  // Past matches kept on this phone (Home, "Past matches").
+  history: {
+    keep: 30
   },
 
   // "Need help" button.

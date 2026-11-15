@@ -4,7 +4,7 @@ const { test, expect, offset, snap, sleep, typePin, live } = require('./helpers'
 
 const NAMES = ['GABRIEL', 'NOMAD', 'VIPER', 'WATCHER'];
 // Words that are meant to stay as they are.
-const KEEP = /\b(GPS|PIN|GC|MVP|QR|City Hunter|CITY|HUNTER|Leaflet|OpenStreetMap|contributors|English|iPhone|Android|Safari)\b/g;
+const KEEP = /\b(GPS|PIN|GC|MVP|QR|City Hunter|CITY|HUNTER|Leaflet|OpenStreetMap|contributors|English|iPhone|Android|Safari|Google Fonts|Supabase)\b/g;
 
 // Every piece of visible text (and label) that still contains English.
 const leftovers = (page, names) => page.evaluate(({ names, keep }) => {
@@ -43,6 +43,17 @@ test('Chinese: Home, lobby, zone picker, safety and QR are fully translated', as
   await expect(A.locator('[data-act=host]')).toContainText('创建追捕');
   await expect(A.locator('.home-title')).toHaveText('CITY HUNTER');           // the wordmark stays
   expect(await leftovers(A, NAMES)).toEqual([]);
+
+  // How to play (all four screens) and the privacy note.
+  await A.click('[data-act=howto]');
+  for (let i = 0; i < 4; i++) {
+    expect(await leftovers(A, NAMES), 'how to play ' + (i + 1)).toEqual([]);
+    await A.click('[data-act=how-next]');
+  }
+  await A.click('[data-act=privacy]');
+  await expect(A.locator('#modal h2')).toHaveText('隐私');
+  expect(await leftovers(A, NAMES), 'privacy').toEqual([]);
+  await A.click('#modal [data-act=modal-close]');
 
   await A.click('[data-act=host]');
   await A.waitForSelector('#modal:not([hidden]) .safety-list');
@@ -198,14 +209,35 @@ test('Chinese: a whole match (map, shop, chat, catch, results) has no English le
   await sleep(1500);
   await check(C, 'results (hunter)');
   await check(A, 'results (host)');
+  await expect(A.locator('.awards .award').first()).toBeVisible();
+  await check(A, 'results with awards');
   await A.click('[data-act=res-home]');
   await check(A, 'host home confirm');
+  await A.click('#modal [data-act=modal-yes]');
+  // Home again: past matches, then a new lobby that offers the last setup.
+  await A.waitForSelector('#s-home:not([hidden])');
+  await A.click('#home-history');
+  await expect(A.locator('.past-list .past')).toHaveCount(1);
+  await check(A, 'past matches');
+  await A.click('[data-act=history-clear]');
+  await check(A, 'clear history confirm');
   await A.click('#modal [data-act=modal-close]');
+  await A.evaluate(() => { const v = JSON.parse(localStorage.getItem('ch2.setup')); v.mode = 'SKIRMISH'; localStorage.setItem('ch2.setup', JSON.stringify(v)); });
+  await A.click('[data-act=host]');
+  await A.waitForSelector('#modal:not([hidden]) [data-act=safety-ok]');
+  await A.click('[data-act=safety-ok]');
+  await expect(A.locator('.setup-use')).toBeVisible();
+  await check(A, 'lobby with last setup');
+  // The update bar.
+  await A.route('**/version.json*', (route) => route.fulfill({ contentType: 'application/json', body: '{"version":"9.9.9"}' }));
+  await A.evaluate(() => window.CH.update.check());
+  await expect(A.locator('#update-bar')).toBeVisible();
+  await check(A, 'update bar');
   await expect(C.locator('.res-head h1')).toHaveText('没有赢家');
   expect(A.errors.concat(B.errors, C.errors)).toEqual([]);
 });
 
-test('Chinese is picked automatically on a Chinese-language phone, and the choice is remembered', async ({ game }) => {
+test('Chinese is picked automatically on a Chinese-language phone, and the choice is remembered', { tag: '@webkit' }, async ({ game }) => {
   const ctx = await game.browser.newContext({ locale: 'zh-CN', viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   game.contexts.push(ctx);
   await ctx.route((url) => url.hostname !== '127.0.0.1', (route) => route.abort());

@@ -8,6 +8,7 @@ import { act, onRender, onTick, themeButton, toast, screen } from './core.js';
 import { soundButton } from './safety.js';
 import { reportLink } from './extras.js';
 import { i18n } from '../i18n.js';
+import { history } from './history.js';
 
 const NAME_KEY = 'ch2.name';
 const root = $('#s-home');
@@ -44,11 +45,14 @@ function build() {
           '<button type="submit" class="btn btn-line head join-btn">JOIN</button>' +
         '</div>' +
         '<div class="home-more">' +
-          '<button type="button" class="btn btn-sm btn-quiet" data-act="watch">' + icon('eye', 18) + 'Watch a match</button>' +
+          '<button type="button" class="btn btn-sm btn-quiet" data-act="howto">' + icon('help', 18) + 'How to play</button>' +
           '<button type="button" class="btn btn-sm btn-quiet" data-act="practice">' + icon('flag', 18) + 'Practice round</button>' +
+          '<button type="button" class="btn btn-sm btn-quiet" data-act="watch">' + icon('eye', 18) + 'Watch a match</button>' +
+          '<button type="button" class="btn btn-sm btn-quiet" data-act="history" id="home-history">' + icon('replay', 18) + 'Past matches</button>' +
         '</div>' +
         '<p class="home-foot small muted">' + icon('lock', 16) + '<span>Your location is shared with your lobby only while a match is live.</span></p>' +
-        '<div class="home-links"><span id="home-lang"></span>' + reportLink() + '</div>' +
+        '<div class="home-links"><span id="home-lang"></span>' +
+          '<button type="button" class="btn btn-quiet report-link" data-act="privacy">' + icon('lock', 18) + 'Privacy</button>' + reportLink() + '</div>' +
       '</form>' +
     '</div>';
 
@@ -169,6 +173,9 @@ function renderHome() {
   $('#home-lang').innerHTML = langButton();
   renderInstall();
   renderJoining();
+  // "Past matches" only once there is one.
+  const past = $('#home-history');
+  if (past) past.hidden = !history().length;
   const r = app.go.resumable ? app.go.resumable() : null;
   $('#home-resume').innerHTML = r
     ? '<div class="card card-strong resume">' +

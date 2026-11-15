@@ -36,7 +36,8 @@ class Game {
   async context(geo = HOME, opts = {}) {
     const ctx = await this.browser.newContext({
       viewport: opts.viewport || { width: 390, height: 844 }, hasTouch: true,
-      geolocation: geo, permissions: ['geolocation', 'microphone'],
+      // WebKit has no "microphone" permission to grant up front.
+      geolocation: geo, permissions: this.browser.browserType().name() === 'chromium' ? ['geolocation', 'microphone'] : ['geolocation'],
       serviceWorkers: opts.serviceWorkers || 'block'
     });
     // Keep tests off the internet: no map tiles, no web fonts.

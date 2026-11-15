@@ -30,7 +30,7 @@ function matchFields() {
     gps: { lostAt: 0, graceOut: false, told: false },
     out: { sinceT: null, revealed: false },
     caughtT: null, caughtBy: null, caughtWhy: null, caughtAt: null,
-    catches: 0, pings: 0,
+    catches: 0, pings: 0, closest: null,
     tag: null,
     lock: { wrong: 0, untilT: 0 },
     hold: null, penaltyT: 0, flags: { jumps: 0, lastAt: 0 },
@@ -52,7 +52,7 @@ function newGame(code) {
     players: {}, order: [], hostPid: null, hunterStack: [],
     decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [], spectator: [] },
     evN: 0, chatN: 0,
-    lastCatch: null, result: null
+    lastCatch: null, firstCatch: null, result: null
   };
 }
 
