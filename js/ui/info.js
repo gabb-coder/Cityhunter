@@ -31,7 +31,7 @@ const STEPS = [
     title: 'The catch',
     lines: [
       'Hunters: get within ' + CONFIG.catch.rangeM + ' m, tag the prey with a light touch, then tap CATCH.',
-      'The prey’s phone shows a ' + CONFIG.catch.pinLength + '-digit PIN. Type it in to confirm the catch.',
+      'The prey’s phone shows a code and a ' + CONFIG.catch.pinLength + '-digit PIN. Scan the code with your camera, or type the PIN.',
       'The game checks you really are close. No PIN, no catch.'
     ]
   },
@@ -101,6 +101,8 @@ const PRIVACY = [
     'A connection service helps phones find each other and sees your network address and the lobby code. The map comes from OpenStreetMap, which sees your network address and the area you look at. Fonts come from Google Fonts.'],
   ['On this phone',
     'Your callsign, theme, language, sound setting, saved map pieces and your own past results are kept on this phone so the app works next time. Clearing the site’s data in your browser removes them.'],
+  ['Camera',
+    'The camera is on only while the scan screen is open, to read the code on another player’s phone. The picture is read on your phone and is never sent or saved.'],
   ['Voice',
     'The microphone is on only while you hold the talk button. Audio goes straight to your teammates and is not recorded.'],
   ['Problem reports',
