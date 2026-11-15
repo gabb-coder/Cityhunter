@@ -4,6 +4,7 @@ import { $, esc, setHTML, showCode, span, metres, plural } from '../util.js';
 import { icon } from '../icons.js';
 import { CONFIG, MODES, RULE_OPTIONS, RULE_LABELS } from '../config.js';
 import { app, snap } from '../state.js';
+import { tr } from '../i18n.js';
 import { act, onRender, screen, toast, openModal, closeModal, confirmModal, roleName } from './core.js';
 import { zoneCard } from './zone.js';
 import { joinUrl } from './safety.js';
@@ -143,7 +144,7 @@ act('start', () => {
 act('share', async () => {
   const s = snap();
   const url = joinUrl(s.code);
-  const text = 'Join my City Hunter lobby: ' + showCode(s.code);
+  const text = tr('Join my City Hunter lobby:') + ' ' + showCode(s.code);
   try {
     if (navigator.share) await navigator.share({ title: 'City Hunter', text, url });
     else {

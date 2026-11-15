@@ -40,6 +40,8 @@ function initial() {
 let lang = initial();
 let compiled = null;            // { exact: Map, patterns: [{ re, out, lit }] }
 const cache = new Map();
+let names = new Set();          // callsigns in the current match: never translated
+let namesKey = '';
 const missing = new Set();      // English text we had no translation for
 // ?harvest collects every string the app shows (for translators): CH.i18n.harvest
 const harvest = new URLSearchParams(location.search).has('harvest') ? new Set() : null;
@@ -70,6 +72,9 @@ export function tr(text, inner = false) {
   const str = String(text);
   const core = str.trim().replace(/\s+/g, ' ');
   if (!core || !hasLetters(core)) return str;
+  // A captured part that is somebody's callsign stays exactly as typed,
+  // even if it happens to be a word the dictionary knows ("HUNTER").
+  if (inner && names.has(core)) return str;
   if (harvest && !inner) harvest.add(core);
   if (lang === 'en') return str;
   let out = cache.get(core);
@@ -166,6 +171,13 @@ function apply() {
 export const i18n = new Emitter();
 i18n.get = () => lang;
 i18n.missing = missing;
+i18n.setNames = (list) => {
+  const key = list.join('\n');
+  if (key === namesKey) return;
+  namesKey = key;
+  names = new Set(list);
+  cache.clear();
+};
 i18n.harvest = harvest;
 i18n.next = () => LANGS[ORDER[(ORDER.indexOf(lang) + 1) % ORDER.length]];
 i18n.set = (code) => {
