@@ -63,10 +63,13 @@ Everything tunable is in `js/config.js`.
 | `scan.enabled` / `everyMs` / `maxSidePx` | true / 160 / 640 | Scan to catch: on or off, how often a camera frame is checked, and the size frames are shrunk to |
 | `awards.*` | see file | Thresholds for the end-of-match awards |
 | `map.offline.zooms` / `maxTiles` / `keepTiles` | 15–17 / 160 / 800 | Map tiles saved for the play zone at match start |
-| `protocol` | 6 | Bump when messages change; phones on an older cached copy are turned away |
+| `protocol` | 7 | Bump when messages change; phones on an older cached copy are turned away |
 | `net.heartbeatSec` / `heartbeatTimeoutSec` | 2 / 8 | Heartbeat interval and the silence that counts as a dropped link |
 | `net.spotHoldSec` | 300 | A disconnected player's spot is held this long |
 | `net.hostOfflineHoldSec` | 180 | Match stays paused this long waiting for the host |
+| `net.handover` / `handoverAfterSec` / `backupSec` | true / 45 / 5 | A deputy takes over as host after this long; how often it is sent a backup |
+| `relay.*` | see file | Relay server, when to fall back to it, and how often a relayed player is updated |
+| `reports.*` | see file | Where problem reports go, and limits. Off until the table exists |
 | `net.reconnectBackoffSec` | 1, 2, 3, 5, 8 | Wait between reconnect attempts |
 | `net.peerServer` | null | `null` = PeerJS cloud, or `{ host, port, path, secure }` for your own PeerServer |
 | `map.tiles.dark` / `map.tiles.sun` | OpenStreetMap | Tile URL, CSS filter and attribution per theme |
@@ -141,6 +144,13 @@ Fixes from a full review of every feature.
 - **Scan to catch** (`js/ui/scan.js`): the prey's PIN screen also shows a QR code with the same information, and the hunter can scan it instead of typing. The code only ever appears on the prey's own screen, and the host still checks the distance. Decoding uses the browser's detector where there is one and the bundled `vendor/jsQR.js` everywhere else (loaded only when the scanner opens). `CONFIG.scan.enabled = false` hides it.
 - **Drawn zones** (`js/geom.js`, `js/ui/zone.js`): the zone editor has three tools: Circle, Draw shape (tap out up to `zone.maxCorners` corners) and No-go areas. A drawn zone is `{ lat, lng, r, poly }`, where lat/lng/r describe the circle around it, so map framing and saved tiles work unchanged. Containment, the out-of-zone direction, shrinking and Lockdown all follow the shape.
 - **No-go areas**: up to `zone.maxNoGo` shapes marked on everyone's map. A player inside one gets a warning and a sound; the host is told if they stay `zone.noGoTellHostSec`. There is no game penalty.
+
+## Added in 2.5
+
+- **Relay fallback** (`js/relay.js`): when a phone cannot open a direct link to the host (some mobile networks), its messages go through a hosted WebSocket relay (Supabase Realtime, settings in `CONFIG.relay`). Each relayed player and the host agree a key first (ECDH P-256), and every message is AES-GCM encrypted and numbered, so the relay and anyone guessing a channel name see only ciphertext. A relayed player has no voice chat and gets snapshots every `relay.snapshotSec`. `?relay=off` turns it off, `?relayonly` forces it (testing).
+- **Host handover** (`js/host-handover.js`): one connected player is the deputy and receives a slimmed backup of the match every `net.backupSec` (no positions, pings, routes, PINs, decoys or team chat). If the host is unreachable for `net.handoverAfterSec`, the deputy's phone becomes the host under the same lobby code; prey get new PINs and everyone is pinged afresh. A returning old host finds the code held by someone else and rejoins as a player.
+- **Problem reports to the organisers** (`js/report-send.js`): "Send to the organisers" in the report window, and automatic reports after a failure once the player has agreed (asked once, never mid-match). Reports go to an insert-only table (`CONFIG.reports`). **`reports.enabled` is `false` until that table exists**; the SQL is in `server/reports.sql`.
+- With the relay, two WebKit test browsers can play each other, so there is now a multi-phone test on the iPhone engine.
 
 ### Adding a language
 

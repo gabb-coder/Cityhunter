@@ -9,6 +9,7 @@ import { reportLink } from './extras.js';
 const N = CONFIG.net;
 let lastPingWall = 0;
 let lastPingNo = -1;
+let taking = false;
 
 const offlineSec = (st) => (st.downSince ? (Date.now() - st.downSince) / 1000 : 0);
 
@@ -41,7 +42,7 @@ function renderNet() {
       ? 'The host’s phone dropped out, so the match is paused for everyone. Stay where you are: the clock and pings resume the moment the host is back.'
       : 'The host’s phone dropped out. The lobby comes back as soon as they reconnect.';
     facts = inMatch
-      ? [['Match clock', '<span id="net-f1"></span>']].concat(watching ? [] : [[hunter ? 'Last prey ping' : 'Your last ping', '<span id="net-f2"></span>']], [['If host doesn’t return', 'Match ends, no winner']])
+      ? [['Match clock', '<span id="net-f1"></span>']].concat(watching ? [] : [[hunter ? 'Last prey ping' : 'Your last ping', '<span id="net-f2"></span>']], [['If host doesn’t return', '<span id="net-f6"></span>']])
       : [['Waiting for', esc(hostName)], ['Gives up in', '<span id="net-f3"></span>']];
   } else {
     title = 'CONNECTION LOST';
@@ -88,6 +89,19 @@ function tickNet() {
   setText($('#net-f3'), clock(hold));
   setText($('#net-f4'), clock(off));
   setText($('#net-f5'), off < N.spotHoldSec ? clock(N.spotHoldSec - off) : 'released: you rejoin as a hunter');
+
+  // Handover: a deputy carries the match on if the host stays away.
+  const dep = N.handover && sess.inMatch ? s.deputy : null;
+  const mine = !!dep && dep.id === s.me.id && !!sess.backup;
+  const untilHandover = N.handoverAfterSec - off;
+  setText($('#net-f6'), !dep ? 'Match ends, no winner'
+    : mine ? (untilHandover > 0 ? 'You take over as host in ' + clock(untilHandover) : 'You are taking over as host')
+    : (untilHandover > 0 ? dep.name + ' takes over as host in ' + clock(untilHandover) : dep.name + ' is taking over as host'));
+  if (m === 'host' && mine && untilHandover <= 0 && !taking) {
+    taking = true;
+    setTimeout(() => { taking = false; }, 10000);
+    if (app.go.takeOver()) return;
+  }
 
   // The host never came back.
   if (m === 'host' && hold <= 0) {

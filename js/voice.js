@@ -67,6 +67,7 @@ function setPressed(on, text) {
 
 async function start() {
   if (holding || !app.session || !app.session.inMatch) return;
+  if (app.session.relayed) return toast('Voice does not work through the relay. Use the chat.');
   const peer = app.session.link.peer;
   const targets = mates();
   if (!peer || !peer.open) return toast('Voice is reconnecting');

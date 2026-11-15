@@ -6,6 +6,7 @@ import { icon } from '../icons.js';
 import { CONFIG, ABILITIES } from '../config.js';
 import { cue } from '../sound.js';
 import { buildReport } from '../diag.js';
+import { reportsOn, consent, sendReport } from '../report-send.js';
 import { app, snap } from '../state.js';
 import { act, onRender, onTick, screen, render, openModal, closeModal, confirmModal, toast } from './core.js';
 import { bannerHooks, mapItemHooks, mapButtonHooks } from './game.js';
@@ -23,9 +24,31 @@ act('report', async () => {
     '<p class="muted">This is a log of what happened on this phone: connection, GPS and errors. It has no positions, PINs or chat. Send it to whoever looks after the game.</p>' +
     '<textarea class="report-text" readonly aria-label="Report text" translate="no" rows="8">' + esc(reportText) + '</textarea>' +
     '<p class="small muted">' + lines + ' lines</p>' +
-    (navigator.share ? '<button type="button" class="btn btn-lime" data-act="report-share">' + icon('share', 20) + 'Send report</button>' : '') +
+    // Straight to the people who run this game, when that is set up.
+    (reportsOn() ? '<button type="button" class="btn btn-lime" data-act="report-send">' + icon('send', 20) + 'Send to the organisers</button>' : '') +
+    (navigator.share ? '<button type="button" class="btn' + (reportsOn() ? '' : ' btn-lime') + '" data-act="report-share">' + icon('share', 20) + 'Share report</button>' : '') +
     '<button type="button" class="btn" data-act="report-copy">Copy report</button>' +
+    (reportsOn() ? '<div id="report-auto">' + autoRow() + '</div>' : '') +
     '<button type="button" class="btn btn-quiet" data-act="modal-close">Close</button>');
+});
+
+// "Send reports automatically" switch (asked once otherwise).
+function autoRow() {
+  const on = consent() === 'on';
+  return '<button type="button" class="menu-row" data-act="reports-toggle" role="switch" aria-checked="' + on + '">' + icon('warn', 22) +
+    '<span class="menu-text"><strong>Send reports automatically</strong><span class="small muted">When something goes wrong, without asking each time</span></span>' +
+    '<span class="switch' + (on ? ' on' : '') + '" aria-hidden="true"><i></i></span></button>';
+}
+onRender(() => {
+  const box = $('#report-auto');
+  if (box && !$('#modal').hidden) setHTML(box, autoRow());
+});
+
+act('report-send', async (el) => {
+  el.disabled = true;
+  const ok = await sendReport('manual', { manual: true });
+  toast(ok ? 'Report sent. Thank you.' : 'The report could not be sent. Copy it instead.', ok ? 'lime' : 'hunter', 3500);
+  if (!ok) el.disabled = false;
 });
 
 act('report-share', async () => {

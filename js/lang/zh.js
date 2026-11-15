@@ -285,7 +285,7 @@ export const ZH = {
     'Voice': '语音',
     'The microphone is on only while you hold the talk button. Audio goes straight to your teammates and is not recorded.': '只有按住通话按钮时麦克风才会开启。声音直接发给队友，不会被录音。',
     'Problem reports': '问题报告',
-    'A report is a log of connection, GPS and error events. It has no positions, PINs or chat. It is only shared when you choose to send it.': '报告是连接、GPS 和错误事件的记录，不包含位置、PIN 或聊天内容。只有在你选择发送时才会分享。',
+    'A report is a log of connection, GPS and error events. It has no positions, PINs or chat. It is sent only when you tap Send, or automatically if you have agreed to that. You can switch that off in the report window.': '报告是连接、GPS 和错误事件的记录，不包含位置、PIN 或聊天内容。只有在你点“发送”时才会发出；如果你同意过自动发送，也会自动发出。你可以在报告窗口里关闭自动发送。',
     'Younger players': '未成年玩家',
     'If you are under 16, ask a parent or guardian before you play, and play with people you know.': '如果你未满 16 岁，请先征得父母或监护人同意，并且只和认识的人一起玩。',
     'Questions': '有疑问？',
@@ -360,7 +360,28 @@ export const ZH = {
     'The camera is on only while the scan screen is open, to read the code on another player’s phone. The picture is read on your phone and is never sent or saved.': '只有在扫码画面打开时相机才会开启，用来读取其他玩家手机上的二维码。画面只在你的手机上读取，不会被发送或保存。',
 
     // ---- v2.4: zone editor labels ----
-    'Zone tool': '区域工具'
+    'Zone tool': '区域工具',
+
+    // ---- v2.5: relay, problem reports, host handover ----
+    'Connected through the relay: a little slower, and no voice chat': '已通过中继连接：会稍慢一点，并且不能语音',
+    'Voice does not work through the relay. Use the chat.': '通过中继连接时不能语音。请使用聊天。',
+    'Connected through the relay': '已通过中继连接',
+    'If two phones cannot connect directly, their messages pass through a relay server (hosted on Supabase). They are encrypted first, so the relay cannot read them, and nothing is kept.': '如果两部手机无法直接连接，它们的消息会经过一台中继服务器（托管在 Supabase）。消息会先加密，中继无法读取，也不会保存任何内容。',
+    'If the host’s phone drops out, another player’s phone takes the match over. It is given the roles and scores, not positions or PINs.': '如果房主的手机掉线，会由另一名玩家的手机接管对局。它会得到阵营和分数，但不会得到位置或 PIN。',
+    'Send problem reports?': '要发送问题报告吗？',
+    'Something just went wrong on this phone. City Hunter can send a short report to the people who run the game when that happens, so they can fix it.': '这部手机刚刚出了点问题。出现这种情况时，City Hunter 可以向游戏的运营者发送一份简短的报告，方便他们修复。',
+    'A report is a log of connection, GPS and error events. It has no positions, PINs or chat.': '报告是连接、GPS 和错误事件的记录，不包含位置、PIN 或聊天内容。',
+    'Yes, send reports': '好，发送报告',
+    'No thanks': '不用了',
+    'Send to the organisers': '发送给组织者',
+    'Share report': '分享报告',
+    'Send reports automatically': '自动发送报告',
+    'When something goes wrong, without asking each time': '出问题时自动发送，不再每次询问',
+    'Report sent. Thank you.': '报告已发送。谢谢。',
+    'The report could not be sent. Copy it instead.': '报告发送失败。请改为复制。',
+    'The host is gone. This phone is now hosting the match.': '房主不在了。现在由这部手机主持对局。',
+    'Another player took over as host. You are back in as a player.': '已由另一名玩家接任房主。你已作为玩家重新加入。',
+    'You are taking over as host': '你正在接任房主'
   },
 
   patterns: [
@@ -504,6 +525,14 @@ export const ZH = {
     ['{n} no-go areas', '{0} 个禁入区域'],
     ['A shape can have up to {n} corners', '一个形状最多 {0} 个角'],
     ['{} has been in a no-go area for {n} s', '{0} 已在禁入区域内停留 {1} 秒'],
-    ['Zone closing in · {n}% of full size now, {n}% in {n}', '区域正在缩小 · 现在是原来的 {0}%，{2} 后缩到 {1}%']
+    ['Zone closing in · {n}% of full size now, {n}% in {n}', '区域正在缩小 · 现在是原来的 {0}%，{2} 后缩到 {1}%'],
+
+    // ---- v2.5: relay, problem reports, host handover ----
+    ['GPS ±{n} m · relay', 'GPS ±{0} 米 · 中继'],
+    ['{} took over as host. You are back in as a player.', '{0} 已接任房主。你已作为玩家重新加入。'],
+    ['{} is now the host', '现在由 {0} 担任房主'],
+    ['You take over as host in {n}', '{0} 后由你接任房主'],
+    ['{} takes over as host in {n}', '{1} 后由 {0} 接任房主'],
+    ['{} is taking over as host', '{0} 正在接任房主']
   ]
 };

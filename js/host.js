@@ -54,7 +54,8 @@ function newGame(code) {
     players: {}, order: [], hostPid: null, hunterStack: [],
     decoys: [], marks: [], practice: false, chat: { all: [], prey: [], hunter: [], spectator: [] },
     evN: 0, chatN: 0,
-    lastCatch: null, firstCatch: null, result: null
+    lastCatch: null, firstCatch: null, result: null,
+    epoch: 0, deputy: null        // epoch goes up each time another phone takes over as host
   };
 }
 
@@ -66,6 +67,7 @@ export class Host {
     this.handlers = Object.create(null);   // no inherited names: message kinds come from other phones
     this.hooks = { tick: [], live: [], view: [], start: [], convert: [], end: [], hello: [], lobby: [], pos: [], release: [] };
     this.cids = new Map();        // connection id -> player id
+    this.snapAt = new Map();      // player id -> when a relayed player last got a snapshot
     this.dirty = true;
     this.lastTick = Date.now();
     this.lastSnap = 0;
@@ -213,6 +215,13 @@ export class Host {
 
   fromNet(cid, msg, peerId) {
     if (this.stopped) return;
+    // "Who holds this lobby code?" (a returning host checks before hosting again)
+    if (msg.k === 'whois') {
+      const me = this.G.players[this.G.hostPid];
+      this.net.send(cid, { k: 'iam', code: this.G.code, epoch: this.G.epoch || 0, host: me ? me.name : '' });
+      if (!this.cids.has(cid)) this.net.drop(cid);
+      return;
+    }
     if (msg.k === 'hello') return this.hello(cid, msg, peerId);
     const p = this.player(this.cids.get(cid));
     if (p) this.handle(p, msg);
@@ -653,9 +662,20 @@ export class Host {
   }
 
   broadcast(now = Date.now()) {
+    const changed = this.dirty;
     this.dirty = false;
     this.lastSnap = now;
-    for (const p of this.all()) if (p.cid != null) this.to(p, this.view(p));
+    for (const p of this.all()) {
+      if (p.cid == null) continue;
+      // A relayed player gets routine snapshots less often (each one counts
+      // against the relay's quota), but still hears about changes promptly.
+      if (this.net.isRelay && this.net.isRelay(p.cid)) {
+        const gap = now - (this.snapAt.get(p.id) || 0);
+        if (gap < (changed ? 900 : CONFIG.relay.snapshotSec * 1000 - 100)) continue;
+        this.snapAt.set(p.id, now);
+      }
+      this.to(p, this.view(p));
+    }
   }
 
   // What one player is allowed to know right now.

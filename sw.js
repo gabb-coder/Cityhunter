@@ -12,7 +12,7 @@
 // cache. The page asks for the play zone's tiles to be saved when a match
 // starts (js/tiles.js), and every tile that is viewed is kept as well.
 
-const CACHE = 'cityhunter-shell-v2.4.0';
+const CACHE = 'cityhunter-shell-v2.5.0';
 const TILES = 'cityhunter-tiles-v2';   // v1 held oversized (opaque) entries: it is deleted on activate
 const KEEP_TILES = 800;
 const TILE_PATH = /\/\d+\/\d+\/\d+(@2x)?\.(png|jpe?g|webp)$/;
@@ -22,10 +22,10 @@ const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/base.css', 'css/screens.css', 'css/game.css', 'css/catch.css', 'css/alerts.css', 'css/results.css', 'css/extras.css', 'css/more.css',
   'js/app.js', 'js/state.js', 'js/config.js', 'js/util.js', 'js/icons.js', 'js/theme.js', 'js/sound.js',
-  'js/geo.js', 'js/geom.js', 'js/map.js', 'js/net.js', 'js/client.js', 'js/voice.js', 'js/resume.js',
-  'js/diag.js', 'js/i18n.js', 'js/lang/zh.js', 'js/practice.js', 'js/tiles.js',
+  'js/geo.js', 'js/geom.js', 'js/map.js', 'js/net.js', 'js/relay.js', 'js/client.js', 'js/voice.js', 'js/resume.js',
+  'js/diag.js', 'js/report-send.js', 'js/i18n.js', 'js/lang/zh.js', 'js/practice.js', 'js/tiles.js',
   'js/update.js', 'js/host-awards.js', 'js/ui/info.js', 'js/ui/history.js', 'js/ui/scan.js',
-  'js/host.js', 'js/host-play.js', 'js/host-catch.js', 'js/host-admin.js', 'js/host-safety.js', 'js/host-resilience.js', 'js/host-fairplay.js',
+  'js/host.js', 'js/host-play.js', 'js/host-catch.js', 'js/host-admin.js', 'js/host-safety.js', 'js/host-resilience.js', 'js/host-fairplay.js', 'js/host-handover.js',
   'js/ui/core.js', 'js/ui/home.js', 'js/ui/lobby.js', 'js/ui/reveal.js', 'js/ui/game.js', 'js/ui/shop.js', 'js/ui/chat.js',
   'js/ui/catch.js', 'js/ui/results.js', 'js/ui/admin.js', 'js/ui/alerts.js', 'js/ui/net.js', 'js/ui/zone.js', 'js/ui/safety.js',
   'js/ui/extras.js', 'js/ui/replay.js',

@@ -261,7 +261,7 @@ test('Chinese is picked automatically on a Chinese-language phone, and the choic
   game.contexts.push(ctx);
   await ctx.route((url) => url.hostname !== '127.0.0.1', (route) => route.abort());
   const page = await ctx.newPage();
-  await page.goto('http://127.0.0.1:8080/index.html?ps=127.0.0.1:9000');
+  await page.goto('http://127.0.0.1:8080/index.html?ps=127.0.0.1:9000&relay=off');
   await expect(page.locator('[data-act=host]')).toContainText('创建追捕');
   await page.click('[data-act=lang]');                       // switch to English
   await expect(page.locator('[data-act=host]')).toContainText('HOST A HUNT');
