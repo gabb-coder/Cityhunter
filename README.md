@@ -123,6 +123,15 @@ Fixes from a full review of every feature.
 - **Chat**: a converted prey gets the hunter channel's history.
 - **Map tile storage**: tiles are fetched with CORS and only real (non-opaque) responses are stored, so the saved map takes kilobytes instead of hundreds of megabytes.
 
+## Added in 2.3
+
+- **New-version prompt** (`js/update.js`, `version.json`): a page left open checks now and then and offers a reload on Home, in the lobby and on the results screen, never mid-match. Keep `version.json`, `CONFIG.version` and the cache name in `sw.js` in step (a test checks this).
+- **Link preview**: Open Graph tags in `index.html` and `icons/og.png`. The URLs are absolute, so change them if the site moves.
+- **How to play** and a **privacy note** on Home (`js/ui/info.js`). `index.html?privacy` opens the note directly.
+- **Awards** (`js/host-awards.js`): longest survivor, first catch, top hunter, most ground covered and closest call, shown on the results screen. Limits are in `CONFIG.awards`.
+- **Past matches and last setup** (`js/ui/history.js`): each phone keeps its own last `history.keep` results, and the host's next lobby offers "Use last setup".
+- **iPhone engine tests**: tests tagged `@webkit` also run in WebKit, the engine behind every iPhone browser.
+
 ### Adding a language
 
 The UI is written in English and translated as it is drawn (`js/i18n.js`), so no screen code changes. Copy `js/lang/zh.js`, translate the right-hand sides, and register it in `LANGS` in `js/i18n.js`. Opening the game with `?harvest` and reading `CH.i18n.harvest` in the console lists every string seen so far. `tests/zh.spec.js` plays a whole match and fails if any English is left on screen. Mark anything that must never be translated (names, codes, chat) with `translate="no"`.
@@ -134,6 +143,8 @@ The game uses the free public PeerJS cloud to let phones find each other. `serve
 ## Tests
 
 `tests/` runs whole matches between several headless browsers with fake GPS and a local signalling server. It covers every feature above, including spectators, practice rounds, saved map tiles, a 360 x 640 phone, and a full match in Chinese. `tests/fixes.spec.js` holds a regression test for each fix in 2.2.1.
+
+Every test runs in Chromium. Tests tagged `@webkit` run in WebKit as well (`npx playwright install webkit` first). Playwright's WebKit cannot open phone-to-phone links between two test browsers, so those cover everything one phone does alone: Home, hosting a lobby, the zone picker, practice rounds.
 
 ```bash
 cd tests

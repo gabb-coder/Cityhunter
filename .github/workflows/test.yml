@@ -16,7 +16,7 @@ jobs:
   browser-tests:
     name: Multi-player browser tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: tests
@@ -28,5 +28,6 @@ jobs:
           cache: npm
           cache-dependency-path: tests/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # chromium runs every test; webkit (the iPhone engine) runs the ones tagged @webkit
+      - run: npx playwright install --with-deps chromium webkit
       - run: npm test
