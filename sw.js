@@ -12,8 +12,9 @@
 // cache. The page asks for the play zone's tiles to be saved when a match
 // starts (js/tiles.js), and every tile that is viewed is kept as well.
 
-const CACHE = 'cityhunter-shell-v2.2.0';
-const TILES = 'cityhunter-tiles-v1';
+const CACHE = 'cityhunter-shell-v2.2.1';
+const TILES = 'cityhunter-tiles-v2';   // v1 held oversized (opaque) entries: it is deleted on activate
+const KEEP_TILES = 800;
 const TILE_PATH = /\/\d+\/\d+\/\d+(@2x)?\.(png|jpe?g|webp)$/;
 const TIMEOUT_MS = 3500;
 
@@ -72,23 +73,48 @@ self.addEventListener('fetch', (event) => {
 // ---------------------------------------------------------------- tiles
 // Cache first: a saved tile is used at once; anything else is fetched and
 // kept for next time.
+//
+// Tiles are fetched with CORS. A tile fetched without it comes back
+// "opaque", and browsers charge every opaque response several megabytes
+// against the site's storage allowance, however small the file: a few dozen
+// tiles would use up hundreds of megabytes. So opaque tiles are shown but
+// never stored.
+let putsSinceTrim = 0;
+
+async function corsTile(url) {
+  try {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    return res.ok ? res : null;
+  } catch (e) {
+    return null;   // the tile server does not allow CORS, or no network
+  }
+}
+
+async function trim(cache, keep) {
+  const keys = await cache.keys();
+  for (const k of keys.slice(0, Math.max(0, keys.length - keep))) await cache.delete(k);   // oldest first
+}
+
 async function tile(req) {
   const cache = await caches.open(TILES);
   const hit = await cache.match(req.url);
   if (hit) return hit;
-  const res = await fetch(req);
-  if (res.ok || res.type === 'opaque') cache.put(req.url, res.clone());
+  const res = await corsTile(req.url);
+  if (!res) return fetch(req);            // show it anyway, just do not keep it
+  cache.put(req.url, res.clone()).then(() => {
+    if (++putsSinceTrim >= 60) {
+      putsSinceTrim = 0;
+      return trim(cache, KEEP_TILES);
+    }
+  }).catch(() => {});
   return res;
 }
 
 async function fetchTile(cache, url) {
   if (await cache.match(url)) return true;
+  const res = await corsTile(url);
+  if (!res) return false;
   try {
-    // CORS first (a real response that is cheap to store); if the tile
-    // server does not allow it, fall back to an opaque one.
-    let res = await fetch(url, { mode: 'cors' }).catch(() => null);
-    if (!res || !res.ok) res = await fetch(url, { mode: 'no-cors' });
-    if (!res.ok && res.type !== 'opaque') return false;
     await cache.put(url, res);
     return true;
   } catch (e) {
@@ -104,9 +130,7 @@ async function saveTiles(urls, keep) {
     while (queue.length) if (await fetchTile(cache, queue.shift())) ok++;
   };
   await Promise.all([worker(), worker(), worker(), worker()]);   // four at a time: gentle on the tile server
-  // Oldest out once there are too many.
-  const keys = await cache.keys();
-  for (const k of keys.slice(0, Math.max(0, keys.length - (keep || 800)))) await cache.delete(k);
+  await trim(cache, keep || KEEP_TILES);
   return { ok, total: urls.length };
 }
 
